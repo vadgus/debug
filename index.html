@@ -200,7 +200,7 @@
     }
 
     function connect() {
-        ws = new WebSocket('wss://' + websocket_url);
+        ws = new WebSocket('ws://' + websocket_url);
 
         ws.onopen = function () {
             console.log('Connected to monitoring WebSocket server ' + websocket_url);
