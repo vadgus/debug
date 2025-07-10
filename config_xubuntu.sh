@@ -53,6 +53,25 @@ systemctl disable unattended-upgrades
 echo "[*] Configuring XFCE screensaver..."
 sudo -u $real_user dbus-launch xfconf-query -c xfce4-screensaver -p /saver --create -t string -s blank-only
 
+echo "[*] Detecting desktop environment and setting dark theme..."
+desktop_env=$(echo "${XDG_CURRENT_DESKTOP:-$(sudo -u $real_user printenv XDG_CURRENT_DESKTOP)}" | tr '[:upper:]' '[:lower:]')
+
+if [[ "$desktop_env" == *"xfce"* ]] || pgrep -u $real_user xfce4-session >/dev/null 2>&1; then
+    echo "[*] XFCE detected — applying Greybird-dark..."
+    apt install -y greybird-gtk-theme
+    sudo -u $real_user dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
+    sudo -u $real_user dbus-launch xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
+
+elif [[ "$desktop_env" == *"gnome"* ]] || pgrep -u $real_user gnome-session >/dev/null 2>&1; then
+    echo "[*] GNOME detected — applying dark theme via gsettings..."
+    apt install -y gnome-tweaks
+    sudo -u $real_user dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+    sudo -u $real_user dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+
+else
+    echo "[!] Could not detect known desktop environment. Skipping theme setup."
+fi
+
 echo "[*] Configuring aliases..."
 # Replace or add 'll' alias
 if grep -q "^alias ll=" "$bashrc_file"; then
