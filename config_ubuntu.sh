@@ -120,5 +120,4 @@ if command -v gsettings &>/dev/null; then
 fi
 
 # finish
-echo "[✓] System configuration complete. Rebooting now..."
-reboot
+echo "[✓] System configuration complete. Reboot required."
