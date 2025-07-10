@@ -91,4 +91,23 @@ fi
 # install qmodbus from github
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/vadgus/debug/refs/heads/main/install_qmodbus.sh)" || true
 
+# disable apport crash reporting UI
+echo 'enabled=0' > /etc/default/apport
+systemctl stop apport.service || true
+systemctl disable apport.service || true
+rm -f /var/crash/*.crash /var/crash/*.upload /var/crash/*.uploaded
+
+# disable bluetooth service and prevent kernel module loading
+systemctl stop bluetooth.service || true
+systemctl disable bluetooth.service || true
+echo -e "blacklist bluetooth\ninstall bluetooth /bin/false" > /etc/modprobe.d/disable-bluetooth.conf
+
+# hide blueman-applet from autostart if present (GUI)
+mkdir -p "$user_home/.config/autostart"
+if [ -f /etc/xdg/autostart/blueman.desktop ]; then
+    cp /etc/xdg/autostart/blueman.desktop "$user_home/.config/autostart/"
+    sed -i 's/^Hidden=false/Hidden=true/' "$user_home/.config/autostart/blueman.desktop"
+    chown "$real_user":"$real_user" "$user_home/.config/autostart/blueman.desktop"
+fi
+
 echo "[✓] System configuration complete. You may reboot now."
