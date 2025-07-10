@@ -23,11 +23,14 @@ source /etc/default/locale
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 apt install -y "python$PYTHON_VERSION-venv"
 
-# fix apt sources to use https and .pl mirror
-sed -i -E 's|http://|https://|g' /etc/apt/sources.list
-sed -i -E 's|[a-z]{2}\.archive\.ubuntu\.com|pl.archive.ubuntu.com|g' /etc/apt/sources.list
-sed -i -E 's|[a-z]{2}\.security\.ubuntu\.com|security.ubuntu.com|g' /etc/apt/sources.list
+# fix apt sources to use https and pl mirror
+sed -i 's|http://|https://|g' /etc/apt/sources.list
+sed -i -E 's|[a-z]{2,3}\.archive\.ubuntu\.com|pl.archive.ubuntu.com|g' /etc/apt/sources.list
+sed -i -E 's|[a-z]{2,3}\.security\.ubuntu\.com|security.ubuntu.com|g' /etc/apt/sources.list
+
+# update & upgrade after mirror switch
 apt update
+apt upgrade -y
 
 # disable apt motd messages
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
