@@ -15,6 +15,7 @@ echo "$real_user ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/$real_user
 chmod 0440 /etc/sudoers.d/$real_user
 
 # set locale and timezone
+# (timezone is set to Europe/Warsaw for local use)
 update-locale LANG=en_US.UTF-8
 update-locale LC_TIME=en_ZW.UTF-8
 timedatectl set-timezone Europe/Warsaw
@@ -92,6 +93,7 @@ fi
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/vadgus/debug/refs/heads/main/install_qmodbus.sh)" || true
 
 # apply dark theme if GUI is running
+# (detects Xubuntu or Ubuntu and applies appropriate dark theme and wallpaper)
 desktop_env=$(echo "${XDG_CURRENT_DESKTOP:-$(sudo -u $real_user printenv XDG_CURRENT_DESKTOP)}" | tr '[:upper:]' '[:lower:]')
 if [[ "$desktop_env" == *"xfce"* ]] || pgrep -u $real_user xfce4-session >/dev/null 2>&1; then
     apt-get install -y greybird-gtk-theme
@@ -104,6 +106,21 @@ if [[ "$desktop_env" == *"xfce"* ]] || pgrep -u $real_user xfce4-session >/dev/n
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfdesktop --reload || true
 
     # enable do-not-disturb
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -s true --create -t bool || true
+elif [[ "$desktop_env" == *"gnome"* ]] || pgrep -u $real_user gnome-session >/dev/null 2>&1; then
+    apt-get install -y gnome-tweaks
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.notifications show-banners false || true
+
+    if sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings list-schemas | grep -q "org.gnome.settings-daemon.plugins.power"; then
+        sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false || true
+        sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power idle-dim false || true
+        sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing' || true
+    fi
+fi
+
+# enable do-not-disturb
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -s true --create -t bool || true
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -s true --create -t bool || true
 elif [[ "$desktop_env" == *"gnome"* ]] || pgrep -u $real_user gnome-session >/dev/null 2>&1; then
