@@ -37,7 +37,7 @@ apt-get upgrade -y || true
 
 # disable apt motd messages
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
-find /etc/update-motd.d/ -type f \\( -name '*header*' -o -name '*reboot-required*' \\) -exec chmod +x {} \;
+find /etc/update-motd.d/ -type f \( -name '*header*' -o -name '*reboot-required*' \) -exec chmod +x {} \;
 pro config set apt_news=false 2>/dev/null || true
 
 # enable autologin in lightdm
