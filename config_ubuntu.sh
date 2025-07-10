@@ -8,6 +8,7 @@ bashrc_file="$user_home/.bashrc"
 
 # install base packages
 apt-get update
+apt-get upgrade -y || true
 apt-get install -y openssh-server curl git tmux
 
 # allow passwordless sudo
@@ -24,16 +25,6 @@ source /etc/default/locale
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 apt-get install -y "python$PYTHON_VERSION-venv"
 apt-get install -y "python$PYTHON_VERSION-tk"
-
-# fix apt sources to use https and .pl mirror
-sources_file="/etc/apt/sources.list"
-if [[ -f "$sources_file" ]]; then
-  sed -i -E 's|http://|https://|g' "$sources_file"
-  sed -i -E 's|[a-z]{2}\\.archive\\.ubuntu\\.com|pl.archive.ubuntu.com|g' "$sources_file"
-  sed -i -E 's|[a-z]{2}\\.security\\.ubuntu\\.com|security.ubuntu.com|g' "$sources_file"
-fi
-apt-get update
-apt-get upgrade -y || true
 
 # disable apt motd messages
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
