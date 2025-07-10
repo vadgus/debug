@@ -111,4 +111,4 @@ fi
 # install qmodbus from github
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/vadgus/debug/refs/heads/main/install_qmodbus.sh)" || true
 
-echo "[✓] System configuration complete. Reboot required."
+echo "[✓] System configuration complete."
