@@ -1,7 +1,9 @@
 #!/bin/bash
 
+timedatectl set-timezone Europe/Warsaw
+source /etc/default/locale
+
 # fix apt sources to use https and .pl mirror
-# fix apt sources
 sources_file="/etc/apt/sources.list.d/ubuntu.sources"
 sources_list="/etc/apt/sources.list"
 
