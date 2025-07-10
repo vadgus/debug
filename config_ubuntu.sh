@@ -18,7 +18,6 @@ chmod 0440 /etc/sudoers.d/$real_user
 # set locale and timezone
 update-locale LANG=en_US.UTF-8
 update-locale LC_TIME=en_ZW.UTF-8
-timedatectl set-timezone Europe/Warsaw
 source /etc/default/locale
 
 # install venv for system python
