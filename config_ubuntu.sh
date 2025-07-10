@@ -97,12 +97,14 @@ if [[ "$desktop_env" == *"xfce"* ]] || pgrep -u $real_user xfce4-session >/dev/n
     apt-get install -y greybird-gtk-theme
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string || true
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string || true
-    # optional background setup for xfce
-    xfce_bg_file="$user_home/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
-    if [ -f "$xfce_bg_file" ]; then
-        sed -i 's|<value type=\"string\">.*</value>|<value type=\"string\">/usr/share/backgrounds/xfce/xfce-blue.jpg</value>|' "$xfce_bg_file" || true
-    fi
+
+    # set desktop background
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-desktop \
+      -p /backdrop/screen0/monitor0/image-path -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" --create -t string || true
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfdesktop --reload || true
+
     # enable do-not-disturb
+    sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -s true --create -t bool || true
     sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -s true --create -t bool || true
 elif [[ "$desktop_env" == *"gnome"* ]] || pgrep -u $real_user gnome-session >/dev/null 2>&1; then
     apt-get install -y gnome-tweaks
