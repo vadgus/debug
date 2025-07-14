@@ -106,10 +106,20 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   sudo -u "$real_user" xfconf-query -c xfce4-notifyd -p /do-not-disturb -n -t bool -s true || true
 
   # sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" || true
-  if sudo -u "$real_user" xfconf-query -c xfce4-desktop -l | grep -q "/backdrop/screen0/monitor0/workspace0/last-image"; then
-    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg"
+  if [ -n "$DISPLAY" ]; then
+    if ! sudo -u "$real_user" xfconf-query -c xfce4-desktop -l | grep -q "/backdrop/screen0/monitor0/workspace0/last-image"; then
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "" --create -t string
+    else
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s ""
+    fi
+
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -s 0 --create -t int || true
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1" --create -t string || true
+
+    # restart desktop if possible
+    sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
   else
-    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" --create -t string
+    echo "[!] Skipping wallpaper setup: DISPLAY not available"
   fi
 
   mkdir -p "$user_home/.config/autostart"
