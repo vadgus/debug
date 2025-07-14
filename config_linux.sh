@@ -51,7 +51,9 @@ pro config set apt_news=false 2>/dev/null || true
 sed -i '/pam_motd\.so.*\/etc\/legal/ s/^/#/' /etc/pam.d/login 2>/dev/null || true
 rm -f /etc/legal 2>/dev/null || true
 truncate -s 0 /etc/motd 2>/dev/null || true
-touch "$user_home/.hushlogin"
+rm -f "$user_home/.hushlogin"
+chmod +x /etc/update-motd.d/00-header 2>/dev/null || true
+chmod +x /etc/update-motd.d/98-reboot-required 2>/dev/null || true
 
 # safer autologin setup
 mkdir -p /etc/lightdm/lightdm.conf.d
