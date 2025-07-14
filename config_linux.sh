@@ -144,10 +144,17 @@ fi
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
 
-  # Create script to apply dark mode and black background/screensaver
+  # Create script that disables bash history during execution
   mkdir -p "$user_home/.config"
   cat <<'EOF' > "$user_home/.config/gnome-apply-dark.sh"
 #!/bin/bash
+
+# Temporarily disable bash history
+unset HISTFILE
+export HISTFILE=/dev/null
+export HISTSIZE=0
+export HISTFILESIZE=0
+set +o history
 
 # Enable Ubuntu dark mode (since 22.04+)
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
@@ -163,12 +170,15 @@ gsettings set org.gnome.desktop.screensaver picture-uri ''
 gsettings set org.gnome.desktop.screensaver picture-options 'none'
 gsettings set org.gnome.desktop.screensaver primary-color '#000000'
 gsettings set org.gnome.desktop.screensaver color-shading-type 'solid'
+
+# Re-enable history just in case
+set -o history
 EOF
 
   chmod +x "$user_home/.config/gnome-apply-dark.sh"
   chown "$real_user:$real_user" "$user_home/.config/gnome-apply-dark.sh"
 
-  # Autostart on login
+  # Create autostart entry to apply it on login (not interactive — not logged in history)
   mkdir -p "$user_home/.config/autostart"
   cat <<EOF > "$user_home/.config/autostart/gnome-apply-dark.desktop"
 [Desktop Entry]
