@@ -144,45 +144,44 @@ fi
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
 
-  # Prepare theme application script for the user
+  # Create script to apply dark mode and black background/screensaver
   mkdir -p "$user_home/.config"
-  cat <<'EOF' > "$user_home/.config/gnome-apply-theme.sh"
+  cat <<'EOF' > "$user_home/.config/gnome-apply-dark.sh"
 #!/bin/bash
 
-# Set dark theme
-gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
-gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+# Enable Ubuntu dark mode (since 22.04+)
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 
-# Set black desktop background
+# Black desktop background
 gsettings set org.gnome.desktop.background picture-uri ''
 gsettings set org.gnome.desktop.background picture-options 'none'
 gsettings set org.gnome.desktop.background primary-color '#000000'
 gsettings set org.gnome.desktop.background color-shading-type 'solid'
 
-# Set black screensaver
+# Black screensaver
 gsettings set org.gnome.desktop.screensaver picture-uri ''
 gsettings set org.gnome.desktop.screensaver picture-options 'none'
 gsettings set org.gnome.desktop.screensaver primary-color '#000000'
 gsettings set org.gnome.desktop.screensaver color-shading-type 'solid'
 EOF
 
-  chmod +x "$user_home/.config/gnome-apply-theme.sh"
-  chown "$real_user:$real_user" "$user_home/.config/gnome-apply-theme.sh"
+  chmod +x "$user_home/.config/gnome-apply-dark.sh"
+  chown "$real_user:$real_user" "$user_home/.config/gnome-apply-dark.sh"
 
-  # Create autostart .desktop file for GNOME session
+  # Autostart on login
   mkdir -p "$user_home/.config/autostart"
-  cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
+  cat <<EOF > "$user_home/.config/autostart/gnome-apply-dark.desktop"
 [Desktop Entry]
 Type=Application
-Exec=$user_home/.config/gnome-apply-theme.sh
+Exec=$user_home/.config/gnome-apply-dark.sh
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
-Name=Apply GNOME Theme
-Comment=Dark theme and black background
+Name=Apply GNOME Dark Mode
+Comment=Enable dark mode and black background/screensaver
 EOF
 
-  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-theme.desktop"
+  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-dark.desktop"
 fi
 
 # install qmodbus (external script)
