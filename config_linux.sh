@@ -35,7 +35,7 @@ rm -f /etc/legal 2>/dev/null || true
 truncate -s 0 /etc/motd 2>/dev/null || true
 touch "$user_home/.hushlogin"
 
-# enable autologin in lightdm (safe version)
+# safer autologin setup
 mkdir -p /etc/lightdm/lightdm.conf.d
 cat <<EOF > /etc/lightdm/lightdm.conf.d/50-autologin.conf
 [Seat:*]
@@ -55,13 +55,11 @@ else
   echo "alias ll='ls -lah'" >> "$bashrc_file"
 fi
 
-# sed -i '/alias upgrade=/d' "$bashrc_file"
-# echo "alias upgrade='sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean -y'" >> "$bashrc_file"
 if ! grep -q "^alias upgrade=" "$bashrc_file"; then
   echo "alias upgrade='sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean -y'" >> "$bashrc_file"
 fi
 
-# install Docker if not present (avoid snap on Pi)
+# install Docker if not present
 if ! command -v docker &>/dev/null; then
   if command -v snap &>/dev/null && ! grep -qi raspberry /etc/os-release; then
     snap install docker
@@ -73,7 +71,7 @@ if ! command -v docker &>/dev/null; then
   echo 'newgrp docker' >> "$bashrc_file"
 fi
 
-# determine DE more reliably
+# determine DE
 desktop_env=$(sudo -u "$real_user" dbus-launch env | grep XDG_CURRENT_DESKTOP | cut -d= -f2 | tr '[:upper:]' '[:lower:]')
 desktop_env=${desktop_env:-$(pgrep -u $real_user -a | grep -Eo '(xfce4-session|gnome-session)' | cut -d- -f1)}
 
@@ -81,21 +79,23 @@ desktop_env=${desktop_env:-$(pgrep -u $real_user -a | grep -Eo '(xfce4-session|g
 if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   apt-get install -y greybird-gtk-theme elementary-icon-theme
 
-  # sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
+  # force theme
   sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" || \
     sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName --create -t string -s "Greybird-dark"
 
-  # sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
+  # force icon theme
   sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" || \
     sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName --create -t string -s "elementary-xfce-dark"
 
+  # screensaver
   if sudo -u "$real_user" xfconf-query -c xfce4-screensaver -l | grep -q /saver; then
     sudo -u "$real_user" xfconf-query -c xfce4-screensaver -p /saver -s blank-only
   fi
 
+  # notifications
   sudo -u "$real_user" xfconf-query -c xfce4-notifyd -p /do-not-disturb -n -t bool -s true || true
 
-  # sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" || true
+  # fallback wallpaper settings
   sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "" || \
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image --create -t string -s ""
 
@@ -105,29 +105,30 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1" || \
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 --create -t string -s "0;0;0;1"
 
-  # restart XFCE session components
+  # restart WM and desktop
   sudo -u "$real_user" nohup xfwm4 --replace > /dev/null 2>&1 &
   sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
 
+  # autostart GUI-time theme apply
   mkdir -p "$user_home/.config/autostart"
-  # cat <<EOF > "$user_home/.config/autostart/xfdesktop-reload.desktop"
-  # [Desktop Entry]
-  # Type=Application
-  # Name=XFDesktop Reload
-  # Exec=sh -c 'sleep 3 && pkill -HUP xfdesktop'
-  # X-GNOME-Autostart-enabled=true
-  # EOF
-
-  # safer version
-  rm -f "$user_home/.config/autostart/xfdesktop-reload.desktop" "$user_home/.config/autostart/xfdesktop-replace.desktop" || true
-  cat <<EOF > "$user_home/.config/autostart/xfdesktop-replace.desktop"
+  cat <<EOF > "$user_home/.config/autostart/xfce-apply-theme.desktop"
 [Desktop Entry]
 Type=Application
-Name=Restore XFDesktop
-Exec=sh -c 'sleep 2 && nohup xfdesktop --replace > /dev/null 2>&1 &'
+Name=Apply XFCE Theme and Background
+Exec=sh -c '
+sleep 2
+xfconf-query -c xsettings -p /Net/ThemeName -s Greybird-dark
+xfconf-query -c xsettings -p /Net/IconThemeName -s elementary-xfce-dark
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s ""
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -s 0
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1"
+xfdesktop --replace
+xfwm4 --replace
+' &
 X-GNOME-Autostart-enabled=true
 EOF
-  chown "$real_user:$real_user" "$user_home/.config/autostart/xfdesktop-replace.desktop"
+  chown "$real_user:$real_user" "$user_home/.config/autostart/xfce-apply-theme.desktop"
+  chmod +x "$user_home/.config/autostart/xfce-apply-theme.desktop"
 fi
 
 # GNOME setup
