@@ -22,10 +22,23 @@ update-locale LANG=en_US.UTF-8
 update-locale LC_TIME=en_ZW.UTF-8
 source /etc/default/locale
 
-# disable Apport crash reporting
-sed -i 's/^enabled=1$/enabled=0/' /etc/default/apport 2>/dev/null || echo 'enabled=0' > /etc/default/apport
-systemctl stop apport.service || true
-systemctl disable apport.service || true
+# disable crash reporting (Ubuntu / Debian / Raspberry Pi OS)
+os_name=$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+if [[ "$os_name" == "ubuntu" ]]; then
+  # Ubuntu/Xubuntu: disable apport
+  sed -i 's/^enabled=1$/enabled=0/' /etc/default/apport 2>/dev/null || echo 'enabled=0' > /etc/default/apport
+  systemctl stop apport.service 2>/dev/null || true
+  systemctl disable apport.service 2>/dev/null || true
+else
+  # Debian / Raspberry Pi OS: disable core dumps and reportbug
+  sysctl -w kernel.core_pattern=core
+  echo 'kernel.core_pattern=core' > /etc/sysctl.d/99-disable-coredump.conf
+
+  systemctl stop whoopsie.service 2>/dev/null || true
+  systemctl disable whoopsie.service 2>/dev/null || true
+
+  apt purge -y reportbug 2>/dev/null || true
+fi
 
 # install python venv support
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
