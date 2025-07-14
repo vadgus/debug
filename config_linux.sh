@@ -85,7 +85,7 @@ desktop_env=$(sudo -u "$real_user" dbus-launch env | grep XDG_CURRENT_DESKTOP | 
 desktop_env=${desktop_env:-$(pgrep -u $real_user -a | grep -Eo '(xfce4-session|gnome-session)' | cut -d- -f1)}
 
 # XFCE setup
-if [[ "$desktop_env" == *"xfce"* ]]; then
+if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   apt-get install -y greybird-gtk-theme elementary-icon-theme
 
   # sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
