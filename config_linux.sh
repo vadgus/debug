@@ -86,7 +86,6 @@ if ! command -v docker &>/dev/null; then
   fi
   groupadd docker || true
   usermod -aG docker "$real_user"
-  echo 'newgrp docker' >> "$bashrc_file"
 fi
 
 # determine DE
