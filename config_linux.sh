@@ -144,9 +144,9 @@ fi
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
 
-  # Create script to apply dark theme and black background
+  # Prepare theme application script for the user
   mkdir -p "$user_home/.config"
-  cat <<EOF > "$user_home/.config/gnome-apply-theme.sh"
+  cat <<'EOF' > "$user_home/.config/gnome-apply-theme.sh"
 #!/bin/bash
 
 # Set dark theme
@@ -169,7 +169,7 @@ EOF
   chmod +x "$user_home/.config/gnome-apply-theme.sh"
   chown "$real_user:$real_user" "$user_home/.config/gnome-apply-theme.sh"
 
-  # Create autostart .desktop file to run the script on user login
+  # Create autostart .desktop file for GNOME session
   mkdir -p "$user_home/.config/autostart"
   cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
 [Desktop Entry]
