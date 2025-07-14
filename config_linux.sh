@@ -145,12 +145,15 @@ if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
   apt-get install -y dbus-x11
 
-  # old logic (commented, since tmux has no DISPLAY/dbus)
+  # NOTE: these won't work outside GUI session (e.g. in tmux), kept for reference
   # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
   # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
   # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.notifications show-banners false || true
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing' || true
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'nothing' || true
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false || true
 
-  # Create autostart for GUI time
+  # Create autostart .desktop file to apply GNOME settings after login
   mkdir -p "$user_home/.config/autostart"
   cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
 [Desktop Entry]
