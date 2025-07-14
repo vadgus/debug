@@ -142,36 +142,25 @@ fi
 
 # GNOME setup
 if [[ "$desktop_env" == *"gnome"* ]]; then
-  apt-get install -y gnome-tweaks
-  apt-get install -y dbus-x11
-
-  # NOTE: these won't work outside GUI session (e.g. in tmux), kept for reference
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.notifications show-banners false || true
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing' || true
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'nothing' || true
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false || true
-
-  # Create autostart .desktop file to apply GNOME settings after login
   mkdir -p "$user_home/.config/autostart"
-  cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
+  cat <<EOF > "$user_home/.config/autostart/gnome-dark.desktop"
 [Desktop Entry]
 Type=Application
-Name=Apply GNOME Theme
+Name=Set Dark Theme and Black Background
 Exec=sh -c '
 sleep 2
 gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
 gsettings set org.gnome.desktop.interface icon-theme "Yaru-dark"
-gsettings set org.gnome.desktop.notifications show-banners false
-gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type "nothing"
-gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type "nothing"
-gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false
-' &
+gsettings set org.gnome.desktop.background picture-uri ""
+gsettings set org.gnome.desktop.background primary-color "#000000"
+gsettings set org.gnome.desktop.background color-shading-type "solid"
+gsettings set org.gnome.desktop.background picture-options "none"
+'
 X-GNOME-Autostart-enabled=true
 EOF
-  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-theme.desktop"
-  chmod +x "$user_home/.config/autostart/gnome-apply-theme.desktop"
+
+  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-dark.desktop"
+  chmod +x "$user_home/.config/autostart/gnome-dark.desktop"
 fi
 
 # install qmodbus (external script)
