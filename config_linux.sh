@@ -143,24 +143,28 @@ fi
 # GNOME setup
 if [[ "$desktop_env" == *"gnome"* ]]; then
   mkdir -p "$user_home/.config/autostart"
-  cat <<EOF > "$user_home/.config/autostart/gnome-dark.desktop"
+
+  cat <<EOF > "$user_home/.config/autostart/gnome-apply-dark.desktop"
 [Desktop Entry]
 Type=Application
-Name=Set Dark Theme and Black Background
-Exec=sh -c '
-sleep 2
-gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
-gsettings set org.gnome.desktop.interface icon-theme "Yaru-dark"
-gsettings set org.gnome.desktop.background picture-uri ""
-gsettings set org.gnome.desktop.background primary-color "#000000"
-gsettings set org.gnome.desktop.background color-shading-type "solid"
-gsettings set org.gnome.desktop.background picture-options "none"
+Name=Apply Dark GNOME Theme
+Exec=bash -c '
+  export DISPLAY=:0
+  export XDG_CURRENT_DESKTOP=gnome
+  export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u)/bus"
+
+  gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
+  gsettings set org.gnome.desktop.interface icon-theme "Yaru-dark"
+  gsettings set org.gnome.desktop.background picture-uri ""
+  gsettings set org.gnome.desktop.background primary-color "#000000"
+  gsettings set org.gnome.desktop.background color-shading-type "solid"
+  gsettings set org.gnome.desktop.background picture-options "none"
 '
 X-GNOME-Autostart-enabled=true
 EOF
 
-  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-dark.desktop"
-  chmod +x "$user_home/.config/autostart/gnome-dark.desktop"
+  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-dark.desktop"
+  chmod +x "$user_home/.config/autostart/gnome-apply-dark.desktop"
 fi
 
 # install qmodbus (external script)
