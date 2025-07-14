@@ -22,6 +22,11 @@ update-locale LANG=en_US.UTF-8
 update-locale LC_TIME=en_ZW.UTF-8
 source /etc/default/locale
 
+# disable Apport crash reporting
+sed -i 's/^enabled=1$/enabled=0/' /etc/default/apport 2>/dev/null || echo 'enabled=0' > /etc/default/apport
+systemctl stop apport.service || true
+systemctl disable apport.service || true
+
 # install python venv support
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 apt-get install -y "python$PYTHON_VERSION-venv" "python$PYTHON_VERSION-tk"
