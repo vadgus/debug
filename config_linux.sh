@@ -28,7 +28,7 @@ apt-get install -y "python$PYTHON_VERSION-venv" "python$PYTHON_VERSION-tk"
 
 # suppress motd / legal / apt news
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
-find /etc/update-motd.d/ -type f \( -name '*header*' -o -name '98-reboot-required' \) -exec chmod +x {} \;
+find /etc/update-motd.d/ -type f ! -name '*header*' ! -name '98-reboot-required' -exec chmod -x {} \;
 pro config set apt_news=false 2>/dev/null || true
 sed -i '/pam_motd\.so.*\/etc\/legal/ s/^/#/' /etc/pam.d/login 2>/dev/null || true
 rm -f /etc/legal 2>/dev/null || true
