@@ -30,7 +30,7 @@ apt-get install -y "python$PYTHON_VERSION-venv" "python$PYTHON_VERSION-tk"
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
 find /etc/update-motd.d/ -type f \( -name '*header*' -o -name '98-reboot-required' \) -exec chmod +x {} \;
 pro config set apt_news=false 2>/dev/null || true
-sed -i '/pam_motd\.so.*\/etc\/legal/ s/^/#/' /etc/pam.d/login 2>/dev/null || true
+sed -i '/pam_motd\\.so.*\/etc\/legal/ s/^/#/' /etc/pam.d/login 2>/dev/null || true
 rm -f /etc/legal 2>/dev/null || true
 truncate -s 0 /etc/motd 2>/dev/null || true
 touch "$user_home/.hushlogin"
@@ -105,9 +105,24 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1" || \
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 --create -t string -s "0;0;0;1"
 
-  # restart WM and desktop
-  sudo -u "$real_user" nohup xfwm4 --replace > /dev/null 2>&1 &
-  sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
+  # universal wallpaper black background for all monitors and workspaces
+  echo "[*] Applying black background to all XFCE monitors..."
+  monitors=$(sudo -u "$real_user" xfconf-query -c xfce4-desktop -l | grep 'last-image' | awk -F'/' '{print $5}' | sort -u)
+
+  for monitor in $monitors; do
+    echo "  → Applying on monitor: $monitor"
+    for ws in 0 1 2 3; do
+      base="/backdrop/screen0/${monitor}/workspace${ws}"
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/last-image" --create -t string -s "" || true
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/image-path" --create -t string -s "" || true
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/color-style" --create -t int -s 0 || true
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/rgba1" --create -t string -s "0;0;0;1" || true
+      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/image-style" --create -t int -s 0 || true
+    done
+  done
+
+  sudo -u "$real_user" xfdesktop --replace &
+  echo "XFCE background set to black for all monitors."
 
   # autostart GUI-time theme apply
   mkdir -p "$user_home/.config/autostart"
@@ -119,9 +134,6 @@ Exec=sh -c '
 sleep 2
 xfconf-query -c xsettings -p /Net/ThemeName -s Greybird-dark
 xfconf-query -c xsettings -p /Net/IconThemeName -s elementary-xfce-dark
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s ""
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -s 0
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1"
 xfdesktop --replace
 xfwm4 --replace
 ' &
@@ -146,4 +158,4 @@ fi
 # install qmodbus (external script)
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/vadgus/debug/refs/heads/main/install_qmodbus.sh)" || true
 
-echo "[✓] System configuration complete."
+echo "System configuration complete."
