@@ -119,6 +119,12 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
 
   for base in $paths; do
     echo "  → Applying on: $base"
+
+    # remove existing wallpaper config if exists
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/last-image" -r 2>/dev/null || true
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/image-path" -r 2>/dev/null || true
+
+    # set black background
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/last-image" --create -t string -s "" || true
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/image-path" --create -t string -s "" || true
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/color-style" --create -t int -s 0 || true
@@ -126,11 +132,9 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
     sudo -u "$real_user" xfconf-query -c xfce4-desktop -p "$base/image-style" --create -t int -s 0 || true
   done
 
-  echo "XFCE background set to black for all monitors."
-
-  # restart WM and desktop
-  sudo -u "$real_user" nohup xfwm4 --replace > /dev/null 2>&1 &
-  sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
+  echo "Restarting xfdesktop..."
+  sleep 1
+  sudo -u "$real_user" xfdesktop --replace > /dev/null 2>&1 &
 
   # autostart GUI-time theme apply
   mkdir -p "$user_home/.config/autostart"
