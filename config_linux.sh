@@ -145,24 +145,30 @@ if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
   apt-get install -y dbus-x11
 
-  sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+  # old logic (commented, since tmux has no DISPLAY/dbus)
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.notifications show-banners false || true
 
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.notifications show-banners false || true
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing' || true
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'nothing' || true
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false || true
-
-  # set black background
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.background picture-uri ''
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.background primary-color '#000000'
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.background color-shading-type 'solid'
-
-  # lock screen background too
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.screensaver picture-uri ''
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.screensaver primary-color '#000000'
-  sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.screensaver color-shading-type 'solid'
+  # Create autostart for GUI time
+  mkdir -p "$user_home/.config/autostart"
+  cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
+[Desktop Entry]
+Type=Application
+Name=Apply GNOME Theme
+Exec=sh -c '
+sleep 2
+gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
+gsettings set org.gnome.desktop.interface icon-theme "Yaru-dark"
+gsettings set org.gnome.desktop.notifications show-banners false
+gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type "nothing"
+gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type "nothing"
+gsettings set org.gnome.settings-daemon.plugins.power power-saver-profile-on-low-battery false
+' &
+X-GNOME-Autostart-enabled=true
+EOF
+  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-theme.desktop"
+  chmod +x "$user_home/.config/autostart/gnome-apply-theme.desktop"
 fi
 
 # install qmodbus (external script)
