@@ -144,10 +144,8 @@ fi
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
 
-  mkdir -p "$user_home/.config/systemd/user"
-  mkdir -p "$user_home/.config/autostart"
-
-  # create theme+background script
+  # Create script to apply dark theme and black background
+  mkdir -p "$user_home/.config"
   cat <<EOF > "$user_home/.config/gnome-apply-theme.sh"
 #!/bin/bash
 
@@ -155,13 +153,13 @@ if [[ "$desktop_env" == *"gnome"* ]]; then
 gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
 gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
 
-# Set black background
+# Set black desktop background
 gsettings set org.gnome.desktop.background picture-uri ''
 gsettings set org.gnome.desktop.background picture-options 'none'
 gsettings set org.gnome.desktop.background primary-color '#000000'
 gsettings set org.gnome.desktop.background color-shading-type 'solid'
 
-# Set screensaver to black
+# Set black screensaver
 gsettings set org.gnome.desktop.screensaver picture-uri ''
 gsettings set org.gnome.desktop.screensaver picture-options 'none'
 gsettings set org.gnome.desktop.screensaver primary-color '#000000'
@@ -171,27 +169,20 @@ EOF
   chmod +x "$user_home/.config/gnome-apply-theme.sh"
   chown "$real_user:$real_user" "$user_home/.config/gnome-apply-theme.sh"
 
-  # create systemd user service
-  cat <<EOF > "$user_home/.config/systemd/user/gnome-apply-theme.service"
-[Unit]
-Description=Apply GNOME dark theme and black background
-After=graphical-session.target
-Requires=graphical-session.target
-
-[Service]
-Type=oneshot
-ExecStart=%h/.config/gnome-apply-theme.sh
-
-[Install]
-WantedBy=default.target
+  # Create autostart .desktop file to run the script on user login
+  mkdir -p "$user_home/.config/autostart"
+  cat <<EOF > "$user_home/.config/autostart/gnome-apply-theme.desktop"
+[Desktop Entry]
+Type=Application
+Exec=$user_home/.config/gnome-apply-theme.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=Apply GNOME Theme
+Comment=Dark theme and black background
 EOF
 
-  chown "$real_user:$real_user" "$user_home/.config/systemd/user/gnome-apply-theme.service"
-
-  # enable systemd user unit
-  sudo -u "$real_user" systemctl --user daemon-reexec
-  sudo -u "$real_user" systemctl --user daemon-reload
-  sudo -u "$real_user" systemctl --user enable gnome-apply-theme.service || true
+  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-theme.desktop"
 fi
 
 # install qmodbus (external script)
