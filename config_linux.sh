@@ -2,7 +2,7 @@
 set -e
 
 # get real username
-real_user=$(logname)
+real_user=$(logname 2>/dev/null || who | awk '{print $1}' | head -n 1)
 user_home="/home/$real_user"
 bashrc_file="$user_home/.bashrc"
 
