@@ -144,23 +144,43 @@ fi
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
 
-  # persistent dark theme and black wallpaper via systemd user unit
   mkdir -p "$user_home/.config/systemd/user"
+  mkdir -p "$user_home/.config/autostart"
 
+  # create theme+background script
+  cat <<EOF > "$user_home/.config/gnome-apply-theme.sh"
+#!/bin/bash
+
+# Set dark theme
+gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+
+# Set black background
+gsettings set org.gnome.desktop.background picture-uri ''
+gsettings set org.gnome.desktop.background picture-options 'none'
+gsettings set org.gnome.desktop.background primary-color '#000000'
+gsettings set org.gnome.desktop.background color-shading-type 'solid'
+
+# Set screensaver to black
+gsettings set org.gnome.desktop.screensaver picture-uri ''
+gsettings set org.gnome.desktop.screensaver picture-options 'none'
+gsettings set org.gnome.desktop.screensaver primary-color '#000000'
+gsettings set org.gnome.desktop.screensaver color-shading-type 'solid'
+EOF
+
+  chmod +x "$user_home/.config/gnome-apply-theme.sh"
+  chown "$real_user:$real_user" "$user_home/.config/gnome-apply-theme.sh"
+
+  # create systemd user service
   cat <<EOF > "$user_home/.config/systemd/user/gnome-apply-theme.service"
 [Unit]
-Description=Apply GNOME dark theme and black wallpaper
+Description=Apply GNOME dark theme and black background
 After=graphical-session.target
-Wants=graphical-session.target
+Requires=graphical-session.target
 
 [Service]
-Type=exec
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.background picture-uri ''
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.background primary-color '#000000'
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.background color-shading-type 'solid'
-ExecStart=/usr/bin/gsettings set org.gnome.desktop.background picture-options 'none'
+Type=oneshot
+ExecStart=%h/.config/gnome-apply-theme.sh
 
 [Install]
 WantedBy=default.target
