@@ -143,6 +143,9 @@ fi
 # GNOME setup
 if [[ "$desktop_env" == *"gnome"* ]]; then
   apt-get install -y gnome-tweaks
+  apt-get install -y dbus-x11
+
+  sudo -u "$real_user" env DISPLAY=:0 dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
 
   sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
   sudo -u "$real_user" dbus-launch gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
