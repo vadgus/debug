@@ -36,11 +36,19 @@ truncate -s 0 /etc/motd 2>/dev/null || true
 touch "$user_home/.hushlogin"
 
 # enable autologin in lightdm (if available)
-if [ -f /etc/lightdm/lightdm.conf ]; then
-  echo -e "[Seat:*]\nautologin-user=$real_user\nautologin-user-timeout=0" > /etc/lightdm/lightdm.conf
-  chmod 644 /etc/lightdm/lightdm.conf
-  systemctl restart lightdm || true
-fi
+# if [ -f /etc/lightdm/lightdm.conf ]; then
+#   echo -e "[Seat:*]\nautologin-user=$real_user\nautologin-user-timeout=0" > /etc/lightdm/lightdm.conf
+#   chmod 644 /etc/lightdm/lightdm.conf
+#   systemctl restart lightdm || true
+# fi
+
+# safer version that doesn't overwrite other settings
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat <<EOF > /etc/lightdm/lightdm.conf.d/50-autologin.conf
+[Seat:*]
+autologin-user=$real_user
+autologin-user-timeout=0
+EOF
 
 # disable unused services
 systemctl disable unattended-upgrades || true
@@ -53,8 +61,12 @@ if grep -q "^alias ll=" "$bashrc_file"; then
 else
   echo "alias ll='ls -lah'" >> "$bashrc_file"
 fi
-sed -i '/alias upgrade=/d' "$bashrc_file"
-echo "alias upgrade='sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean -y'" >> "$bashrc_file"
+
+# sed -i '/alias upgrade=/d' "$bashrc_file"
+# echo "alias upgrade='sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean -y'" >> "$bashrc_file"
+if ! grep -q "^alias upgrade=" "$bashrc_file"; then
+  echo "alias upgrade='sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean -y'" >> "$bashrc_file"
+fi
 
 # install Docker if not present (avoid snap on Pi)
 if ! command -v docker &>/dev/null; then
@@ -76,21 +88,43 @@ desktop_env=${desktop_env:-$(pgrep -u $real_user -a | grep -Eo '(xfce4-session|g
 if [[ "$desktop_env" == *"xfce"* ]]; then
   apt-get install -y greybird-gtk-theme elementary-icon-theme
 
-  sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
-  sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
-  sudo -u "$real_user" dbus-launch xfconf-query -c xfce4-screensaver -p /saver --create -t string -s blank-only || true
-  sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xfce4-notifyd -p /do-not-disturb -n -t bool -s true || true
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
+  if [ -d /usr/share/themes/Greybird-dark ]; then
+    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
+  fi
+
+  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
+  if [ -d /usr/share/icons/elementary-xfce-dark ]; then
+    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
+  fi
+
+  # sudo -u "$real_user" dbus-launch xfconf-query -c xfce4-screensaver -p /saver --create -t string -s blank-only || true
+  if sudo -u "$real_user" xfconf-query -c xfce4-screensaver -l | grep -q /saver; then
+    sudo -u "$real_user" xfconf-query -c xfce4-screensaver -p /saver -s blank-only
+  fi
+
+  sudo -u "$real_user" xfconf-query -c xfce4-notifyd -p /do-not-disturb -n -t bool -s true || true
   sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" || true
 
   mkdir -p "$user_home/.config/autostart"
-  cat <<EOF > "$user_home/.config/autostart/xfdesktop-reload.desktop"
+  # cat <<EOF > "$user_home/.config/autostart/xfdesktop-reload.desktop"
+  # [Desktop Entry]
+  # Type=Application
+  # Name=XFDesktop Reload
+  # Exec=sh -c 'sleep 3 && pkill -HUP xfdesktop'
+  # X-GNOME-Autostart-enabled=true
+  # EOF
+
+  # safer version
+  rm -f "$user_home/.config/autostart/xfdesktop-reload.desktop" "$user_home/.config/autostart/xfdesktop-replace.desktop" || true
+  cat <<EOF > "$user_home/.config/autostart/xfdesktop-replace.desktop"
 [Desktop Entry]
 Type=Application
-Name=XFDesktop Reload
-Exec=sh -c 'sleep 3 && pkill -HUP xfdesktop'
+Name=Restore XFDesktop
+Exec=sh -c 'sleep 2 && nohup xfdesktop --replace > /dev/null 2>&1 &'
 X-GNOME-Autostart-enabled=true
 EOF
-  chown "$real_user:$real_user" "$user_home/.config/autostart/xfdesktop-reload.desktop"
+  chown "$real_user:$real_user" "$user_home/.config/autostart/xfdesktop-replace.desktop"
 fi
 
 # GNOME setup
