@@ -142,29 +142,36 @@ fi
 
 # GNOME setup
 if [[ "$desktop_env" == *"gnome"* ]]; then
-  mkdir -p "$user_home/.config/autostart"
+  apt-get install -y gnome-tweaks
 
-  cat <<EOF > "$user_home/.config/autostart/gnome-apply-dark.desktop"
-[Desktop Entry]
-Type=Application
-Name=Apply Dark GNOME Theme
-Exec=bash -c '
-  export DISPLAY=:0
-  export XDG_CURRENT_DESKTOP=gnome
-  export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u)/bus"
+  # persistent dark theme and black wallpaper via systemd user unit
+  mkdir -p "$user_home/.config/systemd/user"
 
-  gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
-  gsettings set org.gnome.desktop.interface icon-theme "Yaru-dark"
-  gsettings set org.gnome.desktop.background picture-uri ""
-  gsettings set org.gnome.desktop.background primary-color "#000000"
-  gsettings set org.gnome.desktop.background color-shading-type "solid"
-  gsettings set org.gnome.desktop.background picture-options "none"
-'
-X-GNOME-Autostart-enabled=true
+  cat <<EOF > "$user_home/.config/systemd/user/gnome-apply-theme.service"
+[Unit]
+Description=Apply GNOME dark theme and black wallpaper
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.interface icon-theme 'Yaru-dark'
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.background picture-uri ''
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.background primary-color '#000000'
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.background color-shading-type 'solid'
+ExecStart=/usr/bin/gsettings set org.gnome.desktop.background picture-options 'none'
+
+[Install]
+WantedBy=default.target
 EOF
 
-  chown "$real_user:$real_user" "$user_home/.config/autostart/gnome-apply-dark.desktop"
-  chmod +x "$user_home/.config/autostart/gnome-apply-dark.desktop"
+  chown "$real_user:$real_user" "$user_home/.config/systemd/user/gnome-apply-theme.service"
+
+  # enable systemd user unit
+  sudo -u "$real_user" systemctl --user daemon-reexec
+  sudo -u "$real_user" systemctl --user daemon-reload
+  sudo -u "$real_user" systemctl --user enable gnome-apply-theme.service || true
 fi
 
 # install qmodbus (external script)
