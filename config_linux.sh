@@ -35,14 +35,7 @@ rm -f /etc/legal 2>/dev/null || true
 truncate -s 0 /etc/motd 2>/dev/null || true
 touch "$user_home/.hushlogin"
 
-# enable autologin in lightdm (if available)
-# if [ -f /etc/lightdm/lightdm.conf ]; then
-#   echo -e "[Seat:*]\nautologin-user=$real_user\nautologin-user-timeout=0" > /etc/lightdm/lightdm.conf
-#   chmod 644 /etc/lightdm/lightdm.conf
-#   systemctl restart lightdm || true
-# fi
-
-# safer version that doesn't overwrite other settings
+# enable autologin in lightdm (safe version)
 mkdir -p /etc/lightdm/lightdm.conf.d
 cat <<EOF > /etc/lightdm/lightdm.conf.d/50-autologin.conf
 [Seat:*]
@@ -88,17 +81,14 @@ desktop_env=${desktop_env:-$(pgrep -u $real_user -a | grep -Eo '(xfce4-session|g
 if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   apt-get install -y greybird-gtk-theme elementary-icon-theme
 
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
-  if [ -d /usr/share/themes/Greybird-dark ]; then
-    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
-  fi
+  # sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" --create -t string
+  sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName -s "Greybird-dark" || \
+    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/ThemeName --create -t string -s "Greybird-dark"
 
-  # sudo -u "$real_user" env DISPLAY=:0 dbus-launch xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
-  if [ -d /usr/share/icons/elementary-xfce-dark ]; then
-    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
-  fi
+  # sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" --create -t string
+  sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName -s "elementary-xfce-dark" || \
+    sudo -u "$real_user" xfconf-query -c xsettings -p /Net/IconThemeName --create -t string -s "elementary-xfce-dark"
 
-  # sudo -u "$real_user" dbus-launch xfconf-query -c xfce4-screensaver -p /saver --create -t string -s blank-only || true
   if sudo -u "$real_user" xfconf-query -c xfce4-screensaver -l | grep -q /saver; then
     sudo -u "$real_user" xfconf-query -c xfce4-screensaver -p /saver -s blank-only
   fi
@@ -106,21 +96,18 @@ if [[ "$desktop_env" == *"xfce"* ]] && [[ -n "$DISPLAY" ]]; then
   sudo -u "$real_user" xfconf-query -c xfce4-notifyd -p /do-not-disturb -n -t bool -s true || true
 
   # sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/usr/share/backgrounds/xfce/xfce-blue.jpg" || true
-  if [ -n "$DISPLAY" ]; then
-    if ! sudo -u "$real_user" xfconf-query -c xfce4-desktop -l | grep -q "/backdrop/screen0/monitor0/workspace0/last-image"; then
-      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "" --create -t string
-    else
-      sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s ""
-    fi
+  sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "" || \
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image --create -t string -s ""
 
-    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -s 0 --create -t int || true
-    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1" --create -t string || true
+  sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -s 0 || \
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style --create -t int -s 0
 
-    # restart desktop if possible
-    sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
-  else
-    echo "[!] Skipping wallpaper setup: DISPLAY not available"
-  fi
+  sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 -s "0;0;0;1" || \
+    sudo -u "$real_user" xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 --create -t string -s "0;0;0;1"
+
+  # restart XFCE session components
+  sudo -u "$real_user" nohup xfwm4 --replace > /dev/null 2>&1 &
+  sudo -u "$real_user" nohup xfdesktop --replace > /dev/null 2>&1 &
 
   mkdir -p "$user_home/.config/autostart"
   # cat <<EOF > "$user_home/.config/autostart/xfdesktop-reload.desktop"
