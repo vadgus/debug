@@ -13,7 +13,7 @@ bashrc_file="$user_home/.bashrc"
 # install base packages
 apt-get update
 apt-get upgrade -y || true
-apt-get install -y openssh-server curl git tmux sudo btop
+apt-get install -y openssh-server curl git tmux sudo btop python-is-python3 python3-pip
 apt-get autoremove -y
 apt-get autoclean -y
 
