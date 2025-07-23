@@ -13,7 +13,7 @@ bashrc_file="$user_home/.bashrc"
 # install base packages
 apt-get update
 apt-get upgrade -y || true
-apt-get install -y openssh-server curl git tmux sudo btop python-is-python3 python3-pip
+apt-get install -y openssh-server curl git tmux sudo btop
 apt-get autoremove -y
 apt-get autoclean -y
 
@@ -44,9 +44,9 @@ else
   apt purge -y reportbug 2>/dev/null || true
 fi
 
-# install python venv support
+# install python tools
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-apt-get install -y "python$PYTHON_VERSION-venv" "python$PYTHON_VERSION-tk"
+apt-get install -y "python$PYTHON_VERSION-venv" python3-tk python-is-python3 python3-pip
 
 # suppress motd / legal / apt news
 find /etc/update-motd.d/ -type f -exec chmod -x {} \;
