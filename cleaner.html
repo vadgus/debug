@@ -148,9 +148,29 @@
         );
     }
 
+    // Global: remove non-ASCII (except CR/LF)
+    function cleanAsciiOnly(v) {
+        if (v == null) return v;
+        let s = String(v);
+        // Remove any non-ASCII except CR/LF
+        s = s.replace(/[^ -~\r\n]/g, "");
+        return s;
+    }
+
+    // Collapse multiple spaces into one (do not trim here)
+    function collapseSpaces(s) {
+        return s.replace(/ {2,}/g, " ");
+    }
+
     function cleanArticle(v) {
         if (v == null) return v;
-        const s = String(v);
+        // 1) only ASCII
+        let s = cleanAsciiOnly(v);
+        // 2) trim edges
+        s = s.trim();
+        // 3) collapse internal spaces
+        s = collapseSpaces(s);
+        // 4) apply article whitelist
         let out = '';
         for (let i = 0; i < s.length; i++) {
             const ch = s[i];
@@ -161,13 +181,28 @@
 
     function cleanDescription(v) {
         if (v == null) return v;
-        const s = String(v);
+        // 1) only ASCII
+        let s = cleanAsciiOnly(v);
+        // 2) trim edges
+        s = s.trim();
+        // 3) collapse internal spaces
+        s = collapseSpaces(s);
+        // 4) apply description whitelist
         let out = '';
         for (let i = 0; i < s.length; i++) {
             const ch = s[i];
             if (isAllowedDescriptionChar(ch)) out += ch;
         }
         return out;
+    }
+
+    // Generic: only ASCII + collapse spaces (no trim)
+    function cleanAsciiAndSpacesGeneric(v) {
+        if (v == null) return v;
+        let s = cleanAsciiOnly(v);
+        s = collapseSpaces(s);
+        s = s.trim();
+        return s;
     }
 
     // ===== HTML escaping / diff =====
@@ -430,6 +465,7 @@
             counters.totalRows++;
             const rowNum = r + 1;
 
+            // 1) Article code
             if (colA !== -1 && colA < row.length) {
                 const o = row[colA];
                 const c = cleanArticle(o);
@@ -443,6 +479,7 @@
                 }
             }
 
+            // 2) Description
             if (colD !== -1 && colD < row.length) {
                 const o = row[colD];
                 const c = cleanDescription(o);
@@ -451,6 +488,21 @@
                     counters.cleanedD++;
                     console.log('[CHANGE] Sheet', sheetName, 'row', rowNum, 'Description changed');
                     logs.push(logEntry(sheetName, rowNum, 'Description', o, c));
+                }
+            }
+
+            // 3) Generic ASCII + spaces cleaning for other columns
+            for (let cIdx = 0; cIdx < row.length; cIdx++) {
+                if (cIdx === colA || cIdx === colD) {
+                    continue; // already handled with their own logic
+                }
+                const orig = row[cIdx];
+                const cleaned = cleanAsciiAndSpacesGeneric(orig);
+                if (orig !== cleaned) {
+                    row[cIdx] = cleaned;
+                    counters.cleanedGeneric++;
+                    const colName = headerRow[cIdx] || ('Column ' + (cIdx + 1));
+                    logs.push(logEntry(sheetName, rowNum, `Generic (${colName})`, orig, cleaned));
                 }
             }
 
@@ -470,15 +522,16 @@
             return;
         }
 
-        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0 };
+        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0 };
         const logs = [];
 
         cleanAoa(aoa, 'Sheet1', counters, logs);
 
-        const changeCount = counters.cleanedA + counters.cleanedD;
+        const changeCount = counters.cleanedA + counters.cleanedD + counters.cleanedGeneric;
         console.log('processCsvText: totalRows =', counters.totalRows,
                     'cleanedA =', counters.cleanedA,
                     'cleanedD =', counters.cleanedD,
+                    'cleanedGeneric =', counters.cleanedGeneric,
                     'changeCount =', changeCount);
 
         if (changeCount === 0) {
@@ -487,6 +540,7 @@
                 'Rows processed: ' + counters.totalRows + '\n' +
                 'Cells cleaned (Article code): 0\n' +
                 'Cells cleaned (Description): 0\n' +
+                'Cells cleaned (Other columns): 0\n' +
                 '\nNO CHANGES, nothing to download.'
             );
             changesLogEl.innerHTML = `
@@ -509,6 +563,7 @@
         status += 'Rows processed: ' + counters.totalRows + '\n';
         status += 'Cells cleaned (Article code): ' + counters.cleanedA + '\n';
         status += 'Cells cleaned (Description): ' + counters.cleanedD + '\n';
+        status += 'Cells cleaned (Other columns): ' + counters.cleanedGeneric + '\n';
         status += '\nOutput file: ' + lastFilename;
         setStatus(status);
 
@@ -540,7 +595,7 @@
     function processWorkbook(wb, originalName, outFormat) {
         console.log('processWorkbook: file =', originalName, 'type =', outFormat);
         const newWb = XLSX.utils.book_new();
-        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0 };
+        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0 };
         const logs = [];
 
         wb.SheetNames.forEach(sheetName => {
@@ -554,10 +609,11 @@
             XLSX.utils.book_append_sheet(newWb, newWs, sheetName);
         });
 
-        const changeCount = counters.cleanedA + counters.cleanedD;
+        const changeCount = counters.cleanedA + counters.cleanedD + counters.cleanedGeneric;
         console.log('processWorkbook: totalRows =', counters.totalRows,
                     'cleanedA =', counters.cleanedA,
                     'cleanedD =', counters.cleanedD,
+                    'cleanedGeneric =', counters.cleanedGeneric,
                     'changeCount =', changeCount);
 
         if (changeCount === 0) {
@@ -566,6 +622,7 @@
                 'Rows processed: ' + counters.totalRows + '\n' +
                 'Cells cleaned (Article code): 0\n' +
                 'Cells cleaned (Description): 0\n' +
+                'Cells cleaned (Other columns): 0\n' +
                 '\nNO CHANGES, nothing to download.'
             );
             changesLogEl.innerHTML = `
@@ -588,6 +645,7 @@
         status += 'Rows processed: ' + counters.totalRows + '\n';
         status += 'Cells cleaned (Article code): ' + counters.cleanedA + '\n';
         status += 'Cells cleaned (Description): ' + counters.cleanedD + '\n';
+        status += 'Cells cleaned (Other columns): ' + counters.cleanedGeneric + '\n';
         status += '\nOutput file: ' + lastFilename;
         setStatus(status);
 
@@ -621,7 +679,7 @@
         const newVal = escapeHtmlWithNewlines(cleaned);
         return `
 <div class="log-entry">
-  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${colName}"</div>
+  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${escapeHtmlWithNewlines(colName)}"</div>
   <div class="log-line"><span class="log-label">-</span> ${diff}</div>
   <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
 </div>`;
