@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Article/Description cleaner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- SheetJS for XLS/XLSX/CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #111;
+            color: #eee;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #555;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            background: #1b1b1b;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .drop-zone.dragover {
+            background: #222;
+            border-color: #999;
+        }
+
+        .drop-zone input {
+            display: none;
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            white-space: pre-line;
+        }
+
+        .btn {
+            margin-top: 20px;
+            padding: 8px 18px;
+            border-radius: 4px;
+            border: none;
+            background: #2c7be5;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:disabled {
+            background: #444;
+            cursor: default;
+        }
+
+        .log-container {
+            margin-top: 20px;
+        }
+
+        .log-container h2 {
+            font-size: 16px;
+            margin: 0 0 5px 0;
+        }
+
+        #changesLog {
+            width: 100%;
+            max-height: 260px;
+            background: #000;
+            color: #eee;
+            border-radius: 4px;
+            border: 1px solid #444;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            box-sizing: border-box;
+            overflow: auto;
+            white-space: pre;
+        }
+
+        .log-hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 3px;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #222;
+            padding: 4px 0;
+        }
+
+        .log-header {
+            color: #ccc;
+            margin-bottom: 2px;
+        }
+
+        .log-line {
+            white-space: pre;
+        }
+
+        .log-label {
+            display: inline-block;
+            width: 16px;
+            color: #888;
+        }
+
+        .removed {
+            background: #5b2626;
+            color: #ffb3b3;
+            text-decoration: line-through;
+        }
+    </style>
+</head>
+<body>
+<h1>Clean article / description</h1>
+
+<div class="drop-zone" id="dropZone">
+    <p><strong>Click to choose file</strong> or drag &amp; drop here</p>
+    <p class="hint">Supported: CSV, XLS, XLSX</p>
+    <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
+</div>
+
+<div id="status"></div>
+
+<button class="btn" id="downloadBtn" disabled>Download cleaned file</button>
+
+<div class="log-container">
+    <h2>Changes log</h2>
+    <div id="changesLog"></div>
+    <div class="log-hint">
+        Row numbers start from 1 (header row = 1, first data row = 2).
+    </div>
+</div>
+
+<script>
+    // Allowed characters:
+    // For article: A-Z a-z 0-9 space - : _ .
+    // For description:
+    //   A-Z a-z 0-9
+    //   _ , . space : ; ) ( " ' - ? ! / \ % + # & ^ @ $ [ ] Ø =
+    //   and newlines (\r, \n)
+
+    const ARTICLE_EXTRA = ' -:_.';
+    const DESCRIPTION_EXTRA = '_,. :;)\"\'-?!/\\%+#&^@$[]Ø=';
+
+    function isLetterOrDigit(ch) {
+        return /[A-Za-z0-9]/.test(ch);
+    }
+
+    function isAllowedArticleChar(ch) {
+        return isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
+    }
+
+    function isAllowedDescriptionChar(ch) {
+        if (isLetterOrDigit(ch)) {
+            return true;
+        }
+        if (ch === '\r' || ch === '\n') {
+            return true;
+        }
+        return DESCRIPTION_EXTRA.includes(ch);
+    }
+
+    function cleanArticle(value) {
+        if (value == null) {
+            return value;
+        }
+        const s = String(value);
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (isAllowedArticleChar(ch)) {
+                out += ch;
+            }
+        }
+        return out;
+    }
+
+    function cleanDescription(value) {
+        if (value == null) {
+            return value;
+        }
+        const s = String(value);
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (isAllowedDescriptionChar(ch)) {
+                out += ch;
+            }
+        }
+        return out;
+    }
+
+    // Escape single character to safe HTML, keeping newlines visible
+    function escapeHtmlChar(ch) {
+        if (ch === '\n') {
+            return '\n';
+        }
+        if (ch === '\r') {
+            // ignore \r, treat CRLF as single line break
+            return '';
+        }
+        if (ch === '&') return '&amp;';
+        if (ch === '<') return '&lt;';
+        if (ch === '>') return '&gt;';
+        return ch;
+    }
+
+    // Escape full string to safe HTML, keeping newlines
+    function escapeHtmlWithNewlines(value) {
+        if (value == null) {
+            return '';
+        }
+        const s = String(value);
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+            out += escapeHtmlChar(s[i]);
+        }
+        return out;
+    }
+
+    // Build diff for original vs cleaned:
+    // characters that disappeared are wrapped in span.removed
+    function buildRemovedDiffHtml(original, cleaned) {
+        if (original == null) {
+            return '';
+        }
+        const orig = String(original);
+        const cleanStr = cleaned == null ? '' : String(cleaned);
+        let j = 0;
+        let res = '';
+
+        for (let i = 0; i < orig.length; i++) {
+            const ch = orig[i];
+            if (j < cleanStr.length && ch === cleanStr[j]) {
+                res += escapeHtmlChar(ch);
+                j += 1;
+            } else {
+                res += '<span class="removed">' + escapeHtmlChar(ch) + '</span>';
+            }
+        }
+        return res;
+    }
+
+    // UI elements
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const statusEl = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const changesLogEl = document.getElementById('changesLog');
+
+    let lastBlob = null;
+    let lastFilename = null;
+
+    function setStatus(text) {
+        statusEl.textContent = text;
+    }
+
+    function resetOutput() {
+        lastBlob = null;
+        lastFilename = null;
+        downloadBtn.disabled = true;
+        changesLogEl.innerHTML = '';
+    }
+
+    // File name helper: originalfilename_clear.ext
+    function makeOutputName(originalName) {
+        const dotIndex = originalName.lastIndexOf('.');
+        if (dotIndex === -1) {
+            return originalName + '_clear';
+        }
+        const base = originalName.slice(0, dotIndex);
+        const ext = originalName.slice(dotIndex); // includes dot
+        return base + '_clear' + ext;
+    }
+
+    // Main processing entry point
+    function handleFile(file) {
+        resetOutput();
+        if (!file) {
+            return;
+        }
+
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
+            setStatus('Unsupported file type: ' + ext + '\nUse CSV, XLS or XLSX.');
+            return;
+        }
+
+        setStatus('Reading file: ' + file.name + ' ...');
+
+        const reader = new FileReader();
+
+        if (ext === 'csv') {
+            reader.onload = function (e) {
+                try {
+                    const text = e.target.result;
+                    const wb = XLSX.read(text, { type: 'string' });
+                    processWorkbook(wb, file.name, 'csv');
+                } catch (err) {
+                    console.error(err);
+                    setStatus('Error while reading CSV: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        } else {
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const bookType = (ext === 'xls') ? 'xls' : 'xlsx';
+                    processWorkbook(wb, file.name, bookType);
+                } catch (err) {
+                    console.error(err);
+                    setStatus('Error while reading Excel file: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    function processWorkbook(workbook, originalName, outFormat) {
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            setStatus('Workbook has no sheets.');
+            return;
+        }
+
+        const newWorkbook = XLSX.utils.book_new();
+        let totalRows = 0;
+        let articleCleanedCount = 0;
+        let descriptionCleanedCount = 0;
+        const changeLogs = [];
+
+        workbook.SheetNames.forEach((sheetName) => {
+            const ws = workbook.Sheets[sheetName];
+            if (!ws) {
+                return;
+            }
+
+            // Convert sheet to array-of-arrays including header row
+            const aoa = XLSX.utils.sheet_to_json(ws, {
+                header: 1,
+                defval: '',
+                raw: false
+            });
+
+            if (!aoa || aoa.length === 0) {
+                XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
+                return;
+            }
+
+            const headerRow = aoa[0].map((h) => String(h || ''));
+            const headerLower = headerRow.map((h) => h.toLowerCase());
+
+            const articleCol = headerLower.indexOf('article');
+            const descriptionCol = headerLower.indexOf('description');
+
+            let sheetArticleCleaned = 0;
+            let sheetDescriptionCleaned = 0;
+
+            // Process data rows
+            for (let r = 1; r < aoa.length; r++) {
+                const row = aoa[r];
+                if (!row) {
+                    continue;
+                }
+                totalRows += 1;
+                const rowNumber = r + 1; // Excel-style: header row = 1
+
+                if (articleCol !== -1 && articleCol < row.length) {
+                    const original = row[articleCol];
+                    const cleaned = cleanArticle(original);
+                    if (cleaned !== original) {
+                        row[articleCol] = cleaned;
+                        sheetArticleCleaned += 1;
+
+                        const diffOriginal = buildRemovedDiffHtml(original, cleaned);
+                        const safeCleaned = escapeHtmlWithNewlines(cleaned);
+
+                        const entryHtml =
+                            '<div class="log-entry">' +
+                                '<div class="log-header">Sheet "' + escapeHtmlWithNewlines(sheetName) +
+                                '", row ' + rowNumber + ', column "article"</div>' +
+                                '<div class="log-line"><span class="log-label">-</span> ' + diffOriginal + '</div>' +
+                                '<div class="log-line"><span class="log-label">+</span> ' + safeCleaned + '</div>' +
+                            '</div>';
+
+                        changeLogs.push(entryHtml);
+                    }
+                }
+
+                if (descriptionCol !== -1 && descriptionCol < row.length) {
+                    const original = row[descriptionCol];
+                    const cleaned = cleanDescription(original);
+                    if (cleaned !== original) {
+                        row[descriptionCol] = cleaned;
+                        sheetDescriptionCleaned += 1;
+
+                        const diffOriginal = buildRemovedDiffHtml(original, cleaned);
+                        const safeCleaned = escapeHtmlWithNewlines(cleaned);
+
+                        const entryHtml =
+                            '<div class="log-entry">' +
+                                '<div class="log-header">Sheet "' + escapeHtmlWithNewlines(sheetName) +
+                                '", row ' + rowNumber + ', column "description"</div>' +
+                                '<div class="log-line"><span class="log-label">-</span> ' + diffOriginal + '</div>' +
+                                '<div class="log-line"><span class="log-label">+</span> ' + safeCleaned + '</div>' +
+                            '</div>';
+
+                        changeLogs.push(entryHtml);
+                    }
+                }
+            }
+
+            articleCleanedCount += sheetArticleCleaned;
+            descriptionCleanedCount += sheetDescriptionCleaned;
+
+            const newSheet = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(newWorkbook, newSheet, sheetName);
+        });
+
+        // Serialize new workbook
+        let blob;
+        if (outFormat === 'csv') {
+            // For CSV we take the first sheet only
+            const firstSheetName = newWorkbook.SheetNames[0];
+            const firstSheet = newWorkbook.Sheets[firstSheetName];
+            const csvData = XLSX.utils.sheet_to_csv(firstSheet);
+            blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        } else {
+            const wbout = XLSX.write(newWorkbook, {
+                bookType: outFormat,
+                type: 'array'
+            });
+            blob = new Blob([wbout], { type: 'application/octet-stream' });
+        }
+
+        lastBlob = blob;
+        lastFilename = makeOutputName(originalName);
+        downloadBtn.disabled = false;
+
+        let msg = 'Done.\n';
+        msg += 'Rows processed (data rows only): ' + totalRows + '\n';
+        msg += 'Cells cleaned in "article": ' + articleCleanedCount + '\n';
+        msg += 'Cells cleaned in "description": ' + descriptionCleanedCount + '\n';
+        msg += '\nOutput file: ' + lastFilename;
+
+        if (articleCleanedCount === 0 && descriptionCleanedCount === 0) {
+            msg += '\n(no characters were removed according to current rules)';
+        }
+
+        setStatus(msg);
+
+        if (changeLogs.length === 0) {
+            changesLogEl.innerHTML = '<div class="log-entry">No changes.</div>';
+        } else {
+            changesLogEl.innerHTML = changeLogs.join('');
+        }
+    }
+
+    downloadBtn.addEventListener('click', function () {
+        if (!lastBlob || !lastFilename) {
+            return;
+        }
+        const url = URL.createObjectURL(lastBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = lastFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // Drag & drop + click handlers
+    dropZone.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        handleFile(file);
+        fileInput.value = ''; // allow re-selecting the same file
+    });
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (eventName === 'drop') {
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files[0]) {
+                    handleFile(dt.files[0]);
+                }
+            }
+            dropZone.classList.remove('dragover');
+        });
+    });
+
+    window.addEventListener('dragover', function (e) {
+        e.preventDefault();
+    });
+    window.addEventListener('drop', function (e) {
+        e.preventDefault();
+    });
+</script>
+</body>
+</html>
