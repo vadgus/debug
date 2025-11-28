@@ -17,10 +17,7 @@
             color: #eee;
         }
 
-        h1 {
-            margin-top: 0;
-            font-size: 20px;
-        }
+        h1 { margin-top: 0; font-size: 20px; }
 
         .drop-zone {
             border: 2px dashed #555;
@@ -31,27 +28,11 @@
             background: #1b1b1b;
             transition: background 0.2s, border-color 0.2s;
         }
+        .drop-zone.dragover { background: #222; border-color: #999; }
+        .drop-zone input { display: none; }
 
-        .drop-zone.dragover {
-            background: #222;
-            border-color: #999;
-        }
-
-        .drop-zone input {
-            display: none;
-        }
-
-        .hint {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #ccc;
-        }
-
-        #status {
-            margin-top: 15px;
-            font-size: 14px;
-            white-space: pre-line;
-        }
+        .hint { margin-top: 10px; font-size: 13px; color: #ccc; }
+        #status { margin-top: 15px; font-size: 14px; white-space: pre-line; }
 
         .btn {
             margin-top: 20px;
@@ -63,20 +44,10 @@
             cursor: pointer;
             font-size: 14px;
         }
+        .btn:disabled { background: #444; cursor: default; }
 
-        .btn:disabled {
-            background: #444;
-            cursor: default;
-        }
-
-        .log-container {
-            margin-top: 20px;
-        }
-
-        .log-container h2 {
-            font-size: 16px;
-            margin: 0 0 5px 0;
-        }
+        .log-container { margin-top: 20px; }
+        .log-container h2 { font-size: 16px; margin: 0 0 5px 0; }
 
         #changesLog {
             width: 100%;
@@ -93,36 +64,32 @@
             white-space: pre;
         }
 
-        .log-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 3px;
-        }
+        .log-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
 
-        .log-entry {
-            border-bottom: 1px solid #222;
-            padding: 4px 0;
-        }
-
-        .log-header {
-            color: #ccc;
-            margin-bottom: 2px;
-        }
-
-        .log-line {
-            white-space: pre;
-        }
-
-        .log-label {
-            display: inline-block;
-            width: 16px;
-            color: #888;
-        }
+        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
+        .log-header { color: #ccc; margin-bottom: 2px; }
+        .log-line { white-space: pre; }
+        .log-label { display: inline-block; width: 16px; color: #888; }
 
         .removed {
             background: #5b2626;
             color: #ffb3b3;
             text-decoration: line-through;
+        }
+
+        .no-changes {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            color: #4caf50;
+            font-weight: bold;
+            padding: 25px 0;
+            text-align: center;
+        }
+        .no-changes .icon {
+            font-size: 42px;
+            margin-right: 12px;
         }
     </style>
 </head>
@@ -136,7 +103,6 @@
 </div>
 
 <div id="status"></div>
-
 <button class="btn" id="downloadBtn" disabled>Download cleaned file</button>
 
 <div class="log-container">
@@ -149,35 +115,27 @@
     const ARTICLE_EXTRA = ' -:_.';
     const DESCRIPTION_EXTRA = '_,. :;)\"\'-?!/\\%+#&^@$[]Ø=';
 
-    function isLetterOrDigit(ch) {
-        return /[A-Za-z0-9]/.test(ch);
-    }
-
-    function isAllowedArticleChar(ch) {
-        return isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
-    }
-
+    function isLetterOrDigit(ch) { return /[A-Za-z0-9]/.test(ch); }
+    function isAllowedArticleChar(ch) { return isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch); }
     function isAllowedDescriptionChar(ch) {
         if (isLetterOrDigit(ch)) return true;
         if (ch === '\r' || ch === '\n') return true;
         return DESCRIPTION_EXTRA.includes(ch);
     }
 
-    function cleanArticle(value) {
-        if (value == null) return value;
-        const s = String(value);
+    function cleanArticle(v) {
+        if (v == null) return v;
+        const s = String(v);
         let out = '';
-        for (let i = 0; i < s.length; i++)
-            if (isAllowedArticleChar(s[i])) out += s[i];
+        for (let c of s) if (isAllowedArticleChar(c)) out += c;
         return out;
     }
 
-    function cleanDescription(value) {
-        if (value == null) return value;
-        const s = String(value);
+    function cleanDescription(v) {
+        if (v == null) return v;
+        const s = String(v);
         let out = '';
-        for (let i = 0; i < s.length; i++)
-            if (isAllowedDescriptionChar(s[i])) out += s[i];
+        for (let c of s) if (isAllowedDescriptionChar(c)) out += c;
         return out;
     }
 
@@ -192,24 +150,20 @@
 
     function escapeHtmlWithNewlines(v) {
         if (v == null) return '';
-        const s = String(v);
         let out = '';
-        for (let i = 0; i < s.length; i++)
-            out += escapeHtmlChar(s[i]);
+        for (let ch of String(v)) out += escapeHtmlChar(ch);
         return out;
     }
 
     function buildRemovedDiffHtml(original, cleaned) {
         if (original == null) return '';
-        const orig = String(original);
-        const cleanStr = cleaned == null ? '' : String(cleaned);
-        let j = 0;
-        let res = '';
-        for (let i = 0; i < orig.length; i++) {
-            const ch = orig[i];
-            if (j < cleanStr.length && ch === cleanStr[j]) {
-                res += escapeHtmlChar(ch);
-                j++;
+        const o = String(original);
+        const c = cleaned == null ? '' : String(cleaned);
+        let j = 0, res = '';
+        for (let i = 0; i < o.length; i++) {
+            const ch = o[i];
+            if (j < c.length && ch === c[j]) {
+                res += escapeHtmlChar(ch); j++;
             } else {
                 res += '<span class="removed">' + escapeHtmlChar(ch) + '</span>';
             }
@@ -226,165 +180,99 @@
     let lastBlob = null;
     let lastFilename = null;
 
-    function setStatus(text) {
-        statusEl.textContent = text;
-    }
-
-    function resetOutput() {
-        lastBlob = null;
-        lastFilename = null;
-        downloadBtn.disabled = true;
-        changesLogEl.innerHTML = '';
-    }
-
-    function makeOutputName(name) {
-        const dot = name.lastIndexOf('.');
-        if (dot === -1) return name + '_clear_utf8';
-        return name.slice(0, dot) + '_clear_utf8' + name.slice(dot);
+    function setStatus(t) { statusEl.textContent = t; }
+    function resetOutput() { lastBlob = lastFilename = null; downloadBtn.disabled = true; changesLogEl.innerHTML = ''; }
+    function makeOutputName(n) {
+        const d = n.lastIndexOf('.');
+        return d === -1 ? n + '_clear_utf8' : n.slice(0, d) + '_clear_utf8' + n.slice(d);
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => { handleFile(e.target.files[0]); fileInput.value = ''; });
 
-    fileInput.addEventListener('change', e => {
-        const file = e.target.files[0];
-        handleFile(file);
-        fileInput.value = '';
-    });
-
-    ['dragenter', 'dragover'].forEach(ev =>
-        dropZone.addEventListener(ev, e => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        })
+    ['dragenter','dragover'].forEach(ev =>
+        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
     );
-
-    ['dragleave', 'drop'].forEach(ev =>
+    ['dragleave','drop'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
-            if (ev === 'drop') {
-                const file = e.dataTransfer.files[0];
-                handleFile(file);
-            }
+            if (ev === 'drop' && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
             dropZone.classList.remove('dragover');
         })
     );
-
     window.addEventListener('dragover', e => e.preventDefault());
     window.addEventListener('drop', e => e.preventDefault());
 
     function handleFile(file) {
         resetOutput();
         if (!file) return;
-
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
-            setStatus('Unsupported file type.');
-            return;
-        }
+        if (!['csv','xls','xlsx'].includes(ext)) return setStatus('Unsupported file type.');
 
         setStatus('Reading file: ' + file.name + ' ...');
-        const reader = new FileReader();
+        const r = new FileReader();
 
         if (ext === 'csv') {
-            reader.onload = e => {
-                try {
-                    const wb = XLSX.read(e.target.result, { type: 'string' });
-                    processWorkbook(wb, file.name, 'csv');
-                } catch (err) {
-                    setStatus('Error: ' + err.message);
-                }
-            };
-            reader.readAsText(file, 'utf-8');
+            r.onload = e => { try { processWorkbook(XLSX.read(e.target.result, { type:'string' }), file.name,'csv'); } catch(err) { setStatus('Error: ' + err.message); } };
+            r.readAsText(file,'utf-8');
         } else {
-            reader.onload = e => {
-                try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                    processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx');
-                } catch (err) {
-                    setStatus('Error: ' + err.message);
-                }
-            };
-            reader.readAsArrayBuffer(file);
+            r.onload = e => { try { processWorkbook(XLSX.read(new Uint8Array(e.target.result),{ type:'array' }), file.name, ext==='xls'?'xls':'xlsx'); } catch(err) { setStatus('Error: ' + err.message); } };
+            r.readAsArrayBuffer(file);
         }
     }
 
-    function processWorkbook(workbook, originalName, outFormat) {
-        const newWorkbook = XLSX.utils.book_new();
-        let totalRows = 0;
-        let cleanedA = 0;
-        let cleanedD = 0;
-        const logs = [];
+    function processWorkbook(wb, originalName, outFormat) {
+        const newWb = XLSX.utils.book_new();
+        let total = 0, clA = 0, clD = 0, logs = [];
 
-        workbook.SheetNames.forEach(sheet => {
-            const ws = workbook.Sheets[sheet];
-            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+        wb.SheetNames.forEach(sheet => {
+            const ws = wb.Sheets[sheet];
+            const aoa = XLSX.utils.sheet_to_json(ws,{ header:1, defval:'', raw:false });
             if (!aoa.length) return;
 
-            const header = aoa[0].map(h => String(h || ''));
-            const lower = header.map(h => h.toLowerCase());
-            const colA = lower.indexOf('article');
-            const colD = lower.indexOf('description');
+            const header = aoa[0].map(h => String(h||'')), lower = header.map(h => h.toLowerCase());
+            const colA = lower.indexOf('article'), colD = lower.indexOf('description');
 
             for (let r = 1; r < aoa.length; r++) {
-                const row = aoa[r];
-                if (!row) continue;
-                totalRows++;
-                const rowNum = r + 1;
+                total++;
+                const row = aoa[r], rowNum = r + 1;
 
                 if (colA !== -1 && colA < row.length) {
-                    const o = row[colA];
-                    const c = cleanArticle(o);
-                    if (c !== o) {
-                        row[colA] = c;
-                        cleanedA++;
-                        logs.push(
-                            logEntry(sheet, rowNum, 'article', o, c)
-                        );
-                    }
+                    const o = row[colA], c = cleanArticle(o);
+                    if (o !== c) { row[colA] = c; clA++; logs.push(logEntry(sheet,rowNum,'article',o,c)); }
                 }
-
                 if (colD !== -1 && colD < row.length) {
-                    const o = row[colD];
-                    const c = cleanDescription(o);
-                    if (c !== o) {
-                        row[colD] = c;
-                        cleanedD++;
-                        logs.push(
-                            logEntry(sheet, rowNum, 'description', o, c)
-                        );
-                    }
+                    const o = row[colD], c = cleanDescription(o);
+                    if (o !== c) { row[colD] = c; clD++; logs.push(logEntry(sheet,rowNum,'description',o,c)); }
                 }
             }
 
-            XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.aoa_to_sheet(aoa), sheet);
+            XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(aoa), sheet);
         });
 
         let blob;
         if (outFormat === 'csv') {
-            const sheet = newWorkbook.Sheets[newWorkbook.SheetNames[0]];
-            const csv = XLSX.utils.sheet_to_csv(sheet);
-            const bom = "\ufeff";
-            blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
+            const csv = XLSX.utils.sheet_to_csv(newWb.Sheets[newWb.SheetNames[0]]);
+            blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
         } else {
-            const wbout = XLSX.write(newWorkbook, { bookType: outFormat, type: 'array' });
-            blob = new Blob([wbout], { type: "application/octet-stream" });
+            blob = new Blob([XLSX.write(newWb, { bookType: outFormat, type:'array' })], { type: "application/octet-stream" });
         }
 
         lastBlob = blob;
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
 
-        let m = 'Done.\n';
-        m += 'Rows processed: ' + totalRows + '\n';
-        m += 'Cells cleaned (article): ' + cleanedA + '\n';
-        m += 'Cells cleaned (description): ' + cleanedD + '\n';
-        m += '\nOutput file: ' + lastFilename;
-        setStatus(m);
+        setStatus(
+            `Done.\nRows processed: ${total}\nCells cleaned (article): ${clA}\nCells cleaned (description): ${clD}\n\nOutput file: ${lastFilename}`
+        );
 
-        if (!logs.length)
-            changesLogEl.innerHTML = '<div class="log-entry">No changes.</div>';
-        else
-            changesLogEl.innerHTML = logs.join('');
+        if (!logs.length) {
+            changesLogEl.innerHTML = `
+                <div class="no-changes">
+                    <span class="icon">✔</span> NO CHANGES
+                </div>
+            `;
+        } else changesLogEl.innerHTML = logs.join('');
     }
 
     function logEntry(sheet, rowNum, col, original, cleaned) {
@@ -392,9 +280,9 @@
         const newVal = escapeHtmlWithNewlines(cleaned);
         return `
 <div class="log-entry">
-    <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${col}"</div>
-    <div class="log-line"><span class="log-label">-</span> ${diff}</div>
-    <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
+  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${col}"</div>
+  <div class="log-line"><span class="log-label">-</span> ${diff}</div>
+  <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
 </div>`;
     }
 
