@@ -112,28 +112,6 @@
             padding: 2px 0 3px 0;
         }
 
-        .log-header {
-            color: #ccc;
-        }
-
-        .log-line {
-            white-space: pre;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        .log-label {
-            display: inline-block;
-            width: 2ch;
-            color: #888;
-        }
-
-        .removed {
-            background: #5b2626;
-            color: #ffb3b3;
-            text-decoration: none;
-        }
-
         .no-changes {
             height: 100%;
             display: flex;
@@ -149,6 +127,12 @@
 
         #changesLog:has(.no-changes) {
             overflow: hidden;
+        }
+
+        .removed {
+            background: #5b2626;
+            color: #ffb3b3;
+            text-decoration: none;
         }
 
         .toast {
@@ -177,7 +161,7 @@
 
 <div class="drop-zone" id="dropZone">
     <p><strong>Click to choose file</strong> or drag & drop here</p>
-    <p class="hint">Supported: CSV, XLS, XLSX (CSV: semicolon, treated as Windows-1251, output UTF-8)</p>
+    <p class="hint">Supported: CSV, XLS, XLSX (CSV: semicolon or comma, input as Windows-1251, output UTF-8)</p>
     <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
 </div>
 
@@ -233,13 +217,9 @@
 
     function cleanArticle(v) {
         if (v == null) return v;
-        // 1) only ASCII
         let s = cleanAsciiOnly(v);
-        // 2) trim edges
         s = s.trim();
-        // 3) collapse internal spaces
         s = collapseSpaces(s);
-        // 4) apply article whitelist
         let out = '';
         for (let i = 0; i < s.length; i++) {
             const ch = s[i];
@@ -250,13 +230,9 @@
 
     function cleanDescription(v) {
         if (v == null) return v;
-        // 1) only ASCII
         let s = cleanAsciiOnly(v);
-        // 2) trim edges
         s = s.trim();
-        // 3) collapse internal spaces
         s = collapseSpaces(s);
-        // 4) apply description whitelist
         let out = '';
         for (let i = 0; i < s.length; i++) {
             const ch = s[i];
@@ -329,10 +305,30 @@
         return s;
     }
 
-    // ===== CSV ; parser (with quotes) =====
+    // ===== CSV delimiter detection =====
 
-    function parseCsvSemicolon(text) {
-        console.log('parseCsvSemicolon: input length =', text.length);
+    function detectCsvDelimiter(text) {
+        const lines = text.split(/\r\n|\n|\r/);
+        let first = "";
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().length > 0) {
+                first = lines[i];
+                break;
+            }
+        }
+        const semis = (first.match(/;/g) || []).length;
+        const commas = (first.match(/,/g) || []).length;
+        let delim = ';';
+        if (commas > semis) delim = ',';
+        console.log('detectCsvDelimiter: firstLine =', first);
+        console.log('detectCsvDelimiter: semicolons =', semis, 'commas =', commas, 'chosen =', delim);
+        return delim;
+    }
+
+    // ===== CSV parser/builder (generic delimiter) =====
+
+    function parseCsvWithDelimiter(text, delim) {
+        console.log('parseCsvWithDelimiter: input length =', text.length, 'delim =', delim);
         const rows = [];
         let row = [];
         let field = '';
@@ -349,7 +345,7 @@
                 } else {
                     inQuotes = !inQuotes;
                 }
-            } else if (ch === ';' && !inQuotes) {
+            } else if (ch === delim && !inQuotes) {
                 row.push(field);
                 field = '';
             } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
@@ -370,22 +366,22 @@
             rows.push(row);
         }
 
-        console.log('parseCsvSemicolon: rows count =', rows.length);
+        console.log('parseCsvWithDelimiter: rows count =', rows.length);
         return rows;
     }
 
-    function buildCsvSemicolon(rows) {
+    function buildCsvWithDelimiter(rows, delim) {
         const out = [];
         for (const row of rows) {
             const fields = row.map(v => {
                 if (v == null) v = '';
                 const s = String(v);
-                if (s.includes(';') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+                if (s.includes(delim) || s.includes('"') || s.includes('\n') || s.includes('\r')) {
                     return '"' + s.replace(/"/g, '""') + '"';
                 }
                 return s;
             });
-            out.push(fields.join(';'));
+            out.push(fields.join(delim));
         }
         return out.join('\r\n');
     }
@@ -487,7 +483,7 @@
         const r = new FileReader();
 
         if (ext === 'csv') {
-            // читаем как windows-1251 — ASCII-символы (включая /) будут как есть
+            // читаем как windows-1251 — ASCII-символы останутся как есть
             r.onload = e => {
                 try {
                     const text = e.target.result;
@@ -565,7 +561,7 @@
             // 3) Generic ASCII + spaces cleaning for other columns
             for (let cIdx = 0; cIdx < row.length; cIdx++) {
                 if (cIdx === colA || cIdx === colD) {
-                    continue; // already handled with their own logic
+                    continue; // уже обработано
                 }
                 const orig = row[cIdx];
                 const cleaned = cleanAsciiAndSpacesGeneric(orig);
@@ -587,7 +583,8 @@
 
     function processCsvText(text, originalName) {
         console.log('processCsvText: start for', originalName);
-        const aoa = parseCsvSemicolon(text);
+        const delim = detectCsvDelimiter(text);
+        const aoa = parseCsvWithDelimiter(text, delim);
         if (!aoa.length) {
             setStatus('Empty CSV');
             return;
@@ -625,7 +622,7 @@
             return;
         }
 
-        const csvOut = buildCsvSemicolon(aoa);
+        const csvOut = buildCsvWithDelimiter(aoa, delim);
         lastBlob = new Blob(['\ufeff' + csvOut], {type: 'text/csv;charset=utf-8'});
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
@@ -748,10 +745,10 @@
     function logEntry(sheet, rowNum, colName, original, cleaned) {
         const diff = buildRemovedDiffHtml(original, cleaned);
         const newVal = escapeHtmlWithNewlines(cleaned);
+        const header = escapeHtmlWithNewlines(sheet) + ':' + rowNum + ' ' + escapeHtmlWithNewlines(colName);
         return (
             '<div class="log-entry">' +
-            'Sheet "' + escapeHtmlWithNewlines(sheet) + '", row ' + rowNum +
-            ', column "' + escapeHtmlWithNewlines(colName) + '"\n' +
+            header + '\n' +
             '- ' + diff + '\n' +
             '+ ' + newVal +
             '</div>\n'
