@@ -88,9 +88,7 @@
             transition: opacity .4s;
             z-index: 99999;
         }
-        .toast.show {
-            opacity: 1;
-        }
+        .toast.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -112,25 +110,51 @@
 </div>
 
 <script>
-    // For article allow: A-Za-z0-9 and " -:_."
-    const ARTICLE_EXTRA = ' -:_.';
-    // For description allow:
-    // A-Za-z0-9 and "_,. :;)("'-?!/\%+#&^@$[]Ø=" and CR/LF
-    const DESCRIPTION_EXTRA = '_,. :;)("\'-?!/\\%+#&^@$[]Ø=';
+    // Article: A-Za-z0-9 + space, -, :, _, .
+    const ARTICLE_EXTRA_SET = new Set([' ', '-', ':', '_', '.']);
+
+    // Description: A-Za-z0-9 + _,. space : ; ) ( " ' - ? ! / % + # & ^ @ $ [ ] Ø =
+    const DESCRIPTION_EXTRA_SET = new Set([
+        '_', ',', '.', ' ', ':', ';', ')', '(', '"', "'", '-', '?', '!', '/',
+        '%', '+', '#', '&', '^', '@', '$', '[', ']', 'Ø', '='
+    ]);
 
     const isLetterOrDigit = ch => /[A-Za-z0-9]/.test(ch);
 
-    const isAllowedArticleChar = ch =>
-        isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
+    function isAllowedArticleChar(ch) {
+        return isLetterOrDigit(ch) || ARTICLE_EXTRA_SET.has(ch);
+    }
 
-    const isAllowedDescriptionChar = ch =>
-        isLetterOrDigit(ch) || ch === '\r' || ch === '\n' || DESCRIPTION_EXTRA.includes(ch);
+    function isAllowedDescriptionChar(ch) {
+        return (
+            isLetterOrDigit(ch) ||
+            ch === '\r' ||
+            ch === '\n' ||
+            DESCRIPTION_EXTRA_SET.has(ch)
+        );
+    }
 
-    const cleanArticle = v =>
-        v == null ? v : [...String(v)].filter(c => isAllowedArticleChar(c)).join('');
+    function cleanArticle(v) {
+        if (v == null) return v;
+        const s = String(v);
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (isAllowedArticleChar(ch)) out += ch;
+        }
+        return out;
+    }
 
-    const cleanDescription = v =>
-        v == null ? v : [...String(v)].filter(c => isAllowedDescriptionChar(c)).join('');
+    function cleanDescription(v) {
+        if (v == null) return v;
+        const s = String(v);
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (isAllowedDescriptionChar(ch)) out += ch;
+        }
+        return out;
+    }
 
     function escapeHtmlChar(ch) {
         if (ch === '\n') return '\n';
@@ -141,11 +165,16 @@
         return ch;
     }
 
-    const escapeHtmlWithNewlines = v =>
-        v == null ? '' : [...String(v)].map(escapeHtmlChar).join('');
+    function escapeHtmlWithNewlines(v) {
+        if (v == null) return '';
+        const s = String(v);
+        let out = '';
+        for (let i = 0; i < s.length; i++) out += escapeHtmlChar(s[i]);
+        return out;
+    }
 
     function buildRemovedDiffHtml(original, cleaned) {
-        if (!original) return '';
+        if (original == null) return '';
         const o = String(original);
         const c = cleaned == null ? '' : String(cleaned);
         let j = 0;
@@ -156,7 +185,7 @@
                 out += escapeHtmlChar(ch);
                 j++;
             } else {
-                out += `<span class="removed">${escapeHtmlChar(ch)}</span>`;
+                out += '<span class="removed">' + escapeHtmlChar(ch) + '</span>';
             }
         }
         return out;
@@ -231,14 +260,14 @@
     let lastBlob = null;
     let lastFilename = null;
 
-    const setStatus = t => statusEl.textContent = t;
+    function setStatus(t) { statusEl.textContent = t; }
 
-    const resetOutput = () => {
+    function resetOutput() {
         lastBlob = null;
         lastFilename = null;
         downloadBtn.disabled = true;
         changesLogEl.innerHTML = '';
-    };
+    }
 
     function makeOutputName(name) {
         const d = name.lastIndexOf('.');
@@ -286,7 +315,6 @@
         const r = new FileReader();
 
         if (ext === 'csv') {
-            // Read as ArrayBuffer to auto-detect encoding
             r.onload = e => {
                 try {
                     const buffer = e.target.result;
@@ -360,7 +388,6 @@
             XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(aoa), sheet);
         });
 
-        // Serialize workbook
         if (outFormat === 'csv') {
             const csv = XLSX.utils.sheet_to_csv(newWb.Sheets[newWb.SheetNames[0]]);
             lastBlob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
@@ -392,7 +419,7 @@
             changesLogEl.innerHTML = logs.join('');
         }
 
-        // Mood booster without blocking the UI (3% chance)
+        // Mood booster, 3% chance, non-blocking
         if (Math.random() < 0.03) {
             const phrases = [
                 "Eugene, have you eaten today?",
