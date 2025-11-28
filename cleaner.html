@@ -5,11 +5,22 @@
     <title>Article/Description cleaner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <!-- SheetJS for XLS/XLSX/CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 20px; background: #111; color: #eee; }
-        h1 { margin-top: 0; font-size: 20px; }
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #111;
+            color: #eee;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 20px;
+        }
 
         .drop-zone {
             border: 2px dashed #555;
@@ -20,40 +31,94 @@
             background: #1b1b1b;
             transition: background .2s, border-color .2s;
         }
-        .drop-zone.dragover { background: #222; border-color: #999; }
-        .drop-zone input { display: none; }
 
-        .hint { margin-top: 10px; font-size: 13px; color: #ccc; }
-        #status { margin-top: 15px; font-size: 14px; white-space: pre-line; }
+        .drop-zone.dragover {
+            background: #222;
+            border-color: #999;
+        }
+
+        .drop-zone input {
+            display: none;
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            white-space: pre-line;
+        }
 
         .btn {
-            margin-top: 20px; padding: 8px 18px; border-radius: 4px;
-            border: none; background: #2c7be5; color: #fff;
-            cursor: pointer; font-size: 14px;
+            margin-top: 20px;
+            padding: 8px 18px;
+            border-radius: 4px;
+            border: none;
+            background: #2c7be5;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
         }
-        .btn:disabled { background: #444; cursor: default; }
 
-        .log-container { margin-top: 20px; }
-        .log-container h2 { font-size: 16px; margin: 0 0 5px 0; }
+        .btn:disabled {
+            background: #444;
+            cursor: default;
+        }
+
+        .log-container {
+            margin-top: 20px;
+        }
+
+        .log-container h2 {
+            font-size: 16px;
+            margin: 0 0 5px 0;
+        }
 
         #changesLog {
-            width: 100%; max-height: 260px; background: #000; color: #eee;
-            border-radius: 4px; border: 1px solid #444; padding: 8px;
-            font-family: monospace; font-size: 12px;
-            overflow: auto; white-space: pre;
+            width: 100%;
+            max-height: 260px;
+            background: #000;
+            color: #eee;
+            border-radius: 4px;
+            border: 1px solid #444;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow: auto;
+            white-space: pre;
         }
 
-        .log-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
+        .log-hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 3px;
+        }
 
-        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
-        .log-header { color: #ccc; margin-bottom: 2px; }
+        .log-entry {
+            border-bottom: 1px solid #222;
+            padding: 4px 0;
+        }
+
+        .log-header {
+            color: #ccc;
+            margin-bottom: 2px;
+        }
 
         .log-line {
             white-space: pre;
             margin: 0;
             line-height: 1.2;
         }
-        .log-label { display: inline-block; width: 16px; color: #888; }
+
+        .log-label {
+            display: inline-block;
+            width: 16px;
+            color: #888;
+        }
 
         .removed {
             background: #5b2626;
@@ -71,6 +136,26 @@
             padding: 25px 0;
             text-align: center;
         }
+
+        .toast {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            background: #1f1f1f;
+            border: 1px solid #3b3b3b;
+            padding: 14px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .4s;
+            z-index: 99999;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -78,7 +163,7 @@
 
 <div class="drop-zone" id="dropZone">
     <p><strong>Click to choose file</strong> or drag & drop here</p>
-    <p class="hint">Supported: CSV, XLS, XLSX (UTF-8 only)</p>
+    <p class="hint">Supported: CSV, XLS, XLSX (UTF-8 output)</p>
     <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
 </div>
 
@@ -97,36 +182,93 @@
 
     const isLetterOrDigit = ch => /[A-Za-z0-9]/.test(ch);
     const isAllowedArticleChar = ch => isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
-    const isAllowedDescriptionChar = ch => isLetterOrDigit(ch) || ch === '\r' || ch === '\n' || DESCRIPTION_EXTRA.includes(ch);
+    const isAllowedDescriptionChar = ch =>
+        isLetterOrDigit(ch) || ch === '\r' || ch === '\n' || DESCRIPTION_EXTRA.includes(ch);
 
     const cleanArticle = v => v == null ? v : [...String(v)].filter(c => isAllowedArticleChar(c)).join('');
     const cleanDescription = v => v == null ? v : [...String(v)].filter(c => isAllowedDescriptionChar(c)).join('');
 
-    const escapeHtmlChar = ch => {
+    function escapeHtmlChar(ch) {
         if (ch === '\n') return '\n';
         if (ch === '\r') return '';
         if (ch === '&') return '&amp;';
         if (ch === '<') return '&lt;';
         if (ch === '>') return '&gt;';
         return ch;
-    };
-    const escapeHtmlWithNewlines = v => v == null ? '' : [...String(v)].map(escapeHtmlChar).join('');
+    }
+
+    const escapeHtmlWithNewlines = v =>
+        v == null ? '' : [...String(v)].map(escapeHtmlChar).join('');
 
     function buildRemovedDiffHtml(original, cleaned) {
         if (!original) return '';
-        const o = String(original), c = cleaned == null ? '' : String(cleaned);
-        let j = 0, out = '';
+        const o = String(original);
+        const c = cleaned == null ? '' : String(cleaned);
+        let j = 0;
+        let out = '';
         for (let i = 0; i < o.length; i++) {
             const ch = o[i];
-            if (j < c.length && ch === c[j]) { out += escapeHtmlChar(ch); j++; }
-            else out += `<span class="removed">${escapeHtmlChar(ch)}</span>`;
+            if (j < c.length && ch === c[j]) {
+                out += escapeHtmlChar(ch);
+                j++;
+            } else {
+                out += `<span class="removed">${escapeHtmlChar(ch)}</span>`;
+            }
         }
         return out;
     }
 
+    // Try to detect best encoding for CSV between UTF-8 and Windows-1251
+    function decodeCsvBuffer(buffer) {
+        if (typeof TextDecoder === 'undefined') {
+            // Fallback: assume UTF-8
+            return {text: new TextDecoder('utf-8').decode(buffer), encoding: 'utf-8 (fallback)'};
+        }
+
+        const candidates = ['utf-8', 'windows-1251'];
+        const results = [];
+
+        for (const enc of candidates) {
+            try {
+                const dec = new TextDecoder(enc, {fatal: false});
+                const text = dec.decode(buffer);
+                results.push({enc, text, score: scoreDecodedText(text)});
+            } catch (e) {
+                // Encoding not supported, skip
+            }
+        }
+
+        if (!results.length) {
+            const dec = new TextDecoder('utf-8');
+            return {text: dec.decode(buffer), encoding: 'utf-8 (forced)'};
+        }
+
+        // Choose minimal score
+        results.sort((a, b) => a.score - b.score);
+        return {text: results[0].text, encoding: results[0].enc};
+    }
+
+    function scoreDecodedText(text) {
+        // Lower score = better
+        let bad = 0;       // replacement chars
+        let mojibake = 0;  // Ã, Ð, Ñ, etc.
+        let cyr = 0;       // Cyrillic letters
+
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (ch === '\uFFFD') bad++;
+
+            if ('ÃÐÑÒÓÝÞãðñòóýþ'.includes(ch)) mojibake++;
+
+            const code = ch.charCodeAt(0);
+            if (code >= 0x0400 && code <= 0x04FF) cyr++;
+        }
+        return bad * 10 + mojibake * 5 - cyr;
+    }
+
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const statusEl  = document.getElementById('status');
+    const statusEl = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     const changesLogEl = document.getElementById('changesLog');
 
@@ -134,7 +276,12 @@
     let lastFilename = null;
 
     const setStatus = t => statusEl.textContent = t;
-    const resetOutput = () => { lastBlob = null; lastFilename = null; downloadBtn.disabled = true; changesLogEl.innerHTML = ''; };
+    const resetOutput = () => {
+        lastBlob = null;
+        lastFilename = null;
+        downloadBtn.disabled = true;
+        changesLogEl.innerHTML = '';
+    };
 
     function makeOutputName(name) {
         const d = name.lastIndexOf('.');
@@ -142,15 +289,24 @@
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', e => { handleFile(e.target.files[0]); fileInput.value = ''; });
+    fileInput.addEventListener('change', e => {
+        handleFile(e.target.files[0]);
+        fileInput.value = '';
+    });
 
-    ['dragenter','dragover'].forEach(ev =>
-        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
-    );
-    ['dragleave','drop'].forEach(ev =>
+    ['dragenter', 'dragover'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
-            if (ev === 'drop' && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+            dropZone.classList.add('dragover');
+        })
+    );
+
+    ['dragleave', 'drop'].forEach(ev =>
+        dropZone.addEventListener(ev, e => {
+            e.preventDefault();
+            if (ev === 'drop' && e.dataTransfer.files[0]) {
+                handleFile(e.dataTransfer.files[0]);
+            }
             dropZone.classList.remove('dragover');
         })
     );
@@ -162,48 +318,83 @@
         resetOutput();
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['csv','xls','xlsx'].includes(ext))
-            return setStatus('Unsupported file type');
+        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
+            setStatus('Unsupported file type');
+            return;
+        }
 
         setStatus('Reading file...');
         const r = new FileReader();
 
         if (ext === 'csv') {
-            r.onload = e => processWorkbook(XLSX.read(e.target.result, { type:'string' }), file.name, 'csv');
-            r.readAsText(file, 'utf-8');
+            // Read as ArrayBuffer and auto-detect encoding
+            r.onload = e => {
+                try {
+                    const buffer = e.target.result;
+                    const decoded = decodeCsvBuffer(buffer);
+                    const wb = XLSX.read(decoded.text, {type: 'string'});
+                    processWorkbook(wb, file.name, 'csv', decoded.encoding);
+                } catch (err) {
+                    console.error(err);
+                    setStatus('Error while reading CSV: ' + err.message);
+                }
+            };
+            r.readAsArrayBuffer(file);
         } else {
-            r.onload = e =>
-                processWorkbook(XLSX.read(new Uint8Array(e.target.result), { type:'array' }), file.name, ext === 'xls' ? 'xls' : 'xlsx');
+            r.onload = e => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx', null);
+                } catch (err) {
+                    console.error(err);
+                    setStatus('Error while reading Excel: ' + err.message);
+                }
+            };
             r.readAsArrayBuffer(file);
         }
     }
 
-    function processWorkbook(wb, originalName, outFormat) {
+    function processWorkbook(wb, originalName, outFormat, inputEncoding) {
         const newWb = XLSX.utils.book_new();
-        let total = 0, cleanedA = 0, cleanedD = 0, logs = [];
+        let total = 0;
+        let cleanedA = 0;
+        let cleanedD = 0;
+        const logs = [];
 
         wb.SheetNames.forEach(sheet => {
             const ws = wb.Sheets[sheet];
-            const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+            const aoa = XLSX.utils.sheet_to_json(ws, {header: 1, defval: '', raw: false});
             if (!aoa.length) return;
 
             const header = aoa[0].map(h => String(h || ''));
             const lower = header.map(h => h.toLowerCase());
-            const colA = lower.indexOf('article'), colD = lower.indexOf('description');
+            const colA = lower.indexOf('article');
+            const colD = lower.indexOf('description');
 
             for (let r = 1; r < aoa.length; r++) {
                 const row = aoa[r];
+                if (!row) continue;
                 total++;
                 const rowNum = r + 1;
 
                 if (colA !== -1 && colA < row.length) {
-                    const o = row[colA], c = cleanArticle(o);
-                    if (o !== c) { row[colA] = c; cleanedA++; logs.push(logEntry(sheet,rowNum,'article',o,c)); }
+                    const o = row[colA];
+                    const c = cleanArticle(o);
+                    if (o !== c) {
+                        row[colA] = c;
+                        cleanedA++;
+                        logs.push(logEntry(sheet, rowNum, 'article', o, c));
+                    }
                 }
 
                 if (colD !== -1 && colD < row.length) {
-                    const o = row[colD], c = cleanDescription(o);
-                    if (o !== c) { row[colD] = c; cleanedD++; logs.push(logEntry(sheet,rowNum,'description',o,c)); }
+                    const o = row[colD];
+                    const c = cleanDescription(o);
+                    if (o !== c) {
+                        row[colD] = c;
+                        cleanedD++;
+                        logs.push(logEntry(sheet, rowNum, 'description', o, c));
+                    }
                 }
             }
 
@@ -212,17 +403,24 @@
 
         if (outFormat === 'csv') {
             const csv = XLSX.utils.sheet_to_csv(newWb.Sheets[newWb.SheetNames[0]]);
-            lastBlob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+            lastBlob = new Blob(["\ufeff" + csv], {type: "text/csv;charset=utf-8"});
         } else {
-            lastBlob = new Blob([XLSX.write(newWb, { bookType: outFormat, type:'array' })], { type: "application/octet-stream" });
+            const wbout = XLSX.write(newWb, {bookType: outFormat, type: 'array'});
+            lastBlob = new Blob([wbout], {type: "application/octet-stream"});
         }
 
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
 
-        setStatus(
-            `Done.\nRows processed: ${total}\nCells cleaned (article): ${cleanedA}\nCells cleaned (description): ${cleanedD}\n\nOutput file: ${lastFilename}`
-        );
+        let status = 'Done.\n';
+        if (inputEncoding) {
+            status += 'Input encoding: ' + inputEncoding + '\n';
+        }
+        status += 'Rows processed: ' + total + '\n';
+        status += 'Cells cleaned (article): ' + cleanedA + '\n';
+        status += 'Cells cleaned (description): ' + cleanedD + '\n';
+        status += '\nOutput file: ' + lastFilename;
+        setStatus(status);
 
         if (!logs.length) {
             changesLogEl.innerHTML = `
@@ -233,6 +431,33 @@
         } else {
             changesLogEl.innerHTML = logs.join('');
         }
+
+        // Mood booster without blocking the UI (3% chance)
+        if (Math.random() < 0.03) {
+            const phrases = [
+                "Eugene, have you eaten today?",
+                "Eugene, remember to take a break.",
+                "Eugene, you're doing great — don't forget to rest.",
+                "Eugene, grab some water or a snack.",
+                "Eugene, your health matters too."
+            ];
+            const msg = phrases[Math.floor(Math.random() * phrases.length)];
+            showToast(msg);
+        }
+    }
+
+    function showToast(msg) {
+        const t = document.createElement("div");
+        t.className = "toast";
+        t.textContent = msg;
+        document.body.appendChild(t);
+
+        requestAnimationFrame(() => t.classList.add("show"));
+
+        setTimeout(() => {
+            t.classList.remove("show");
+            setTimeout(() => t.remove(), 500);
+        }, 4000);
     }
 
     function logEntry(sheet, rowNum, col, original, cleaned) {
@@ -247,6 +472,7 @@
     }
 
     downloadBtn.addEventListener('click', () => {
+        if (!lastBlob || !lastFilename) return;
         const url = URL.createObjectURL(lastBlob);
         const a = document.createElement('a');
         a.href = url;
