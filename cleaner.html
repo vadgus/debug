@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <title>Article/Description cleaner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <!-- SheetJS for XLS/XLSX/CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
         body {
             font-family: sans-serif;
@@ -129,7 +131,7 @@
 
 <div class="drop-zone" id="dropZone">
     <p><strong>Click to choose file</strong> or drag &amp; drop here</p>
-    <p class="hint">Supported: CSV, XLS, XLSX</p>
+    <p class="hint">Supported: CSV, XLS, XLSX (UTF-8 only)</p>
     <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
 </div>
 
@@ -140,19 +142,10 @@
 <div class="log-container">
     <h2>Changes log</h2>
     <div id="changesLog"></div>
-    <div class="log-hint">
-        Row numbers start from 1 (header row = 1, first data row = 2).
-    </div>
+    <div class="log-hint">Row numbers start from 1 (header row = 1, first data row = 2).</div>
 </div>
 
 <script>
-    // Allowed characters:
-    // For article: A-Z a-z 0-9 space - : _ .
-    // For description:
-    //   A-Z a-z 0-9
-    //   _ , . space : ; ) ( " ' - ? ! / \ % + # & ^ @ $ [ ] Ø =
-    //   and newlines (\r, \n)
-
     const ARTICLE_EXTRA = ' -:_.';
     const DESCRIPTION_EXTRA = '_,. :;)\"\'-?!/\\%+#&^@$[]Ø=';
 
@@ -165,89 +158,58 @@
     }
 
     function isAllowedDescriptionChar(ch) {
-        if (isLetterOrDigit(ch)) {
-            return true;
-        }
-        if (ch === '\r' || ch === '\n') {
-            return true;
-        }
+        if (isLetterOrDigit(ch)) return true;
+        if (ch === '\r' || ch === '\n') return true;
         return DESCRIPTION_EXTRA.includes(ch);
     }
 
     function cleanArticle(value) {
-        if (value == null) {
-            return value;
-        }
+        if (value == null) return value;
         const s = String(value);
         let out = '';
-        for (let i = 0; i < s.length; i++) {
-            const ch = s[i];
-            if (isAllowedArticleChar(ch)) {
-                out += ch;
-            }
-        }
+        for (let i = 0; i < s.length; i++)
+            if (isAllowedArticleChar(s[i])) out += s[i];
         return out;
     }
 
     function cleanDescription(value) {
-        if (value == null) {
-            return value;
-        }
+        if (value == null) return value;
         const s = String(value);
         let out = '';
-        for (let i = 0; i < s.length; i++) {
-            const ch = s[i];
-            if (isAllowedDescriptionChar(ch)) {
-                out += ch;
-            }
-        }
+        for (let i = 0; i < s.length; i++)
+            if (isAllowedDescriptionChar(s[i])) out += s[i];
         return out;
     }
 
-    // Escape single character to safe HTML, keeping newlines visible
     function escapeHtmlChar(ch) {
-        if (ch === '\n') {
-            return '\n';
-        }
-        if (ch === '\r') {
-            // ignore \r, treat CRLF as single line break
-            return '';
-        }
+        if (ch === '\n') return '\n';
+        if (ch === '\r') return '';
         if (ch === '&') return '&amp;';
         if (ch === '<') return '&lt;';
         if (ch === '>') return '&gt;';
         return ch;
     }
 
-    // Escape full string to safe HTML, keeping newlines
-    function escapeHtmlWithNewlines(value) {
-        if (value == null) {
-            return '';
-        }
-        const s = String(value);
+    function escapeHtmlWithNewlines(v) {
+        if (v == null) return '';
+        const s = String(v);
         let out = '';
-        for (let i = 0; i < s.length; i++) {
+        for (let i = 0; i < s.length; i++)
             out += escapeHtmlChar(s[i]);
-        }
         return out;
     }
 
-    // Build diff for original vs cleaned:
-    // characters that disappeared are wrapped in span.removed
     function buildRemovedDiffHtml(original, cleaned) {
-        if (original == null) {
-            return '';
-        }
+        if (original == null) return '';
         const orig = String(original);
         const cleanStr = cleaned == null ? '' : String(cleaned);
         let j = 0;
         let res = '';
-
         for (let i = 0; i < orig.length; i++) {
             const ch = orig[i];
             if (j < cleanStr.length && ch === cleanStr[j]) {
                 res += escapeHtmlChar(ch);
-                j += 1;
+                j++;
             } else {
                 res += '<span class="removed">' + escapeHtmlChar(ch) + '</span>';
             }
@@ -255,7 +217,6 @@
         return res;
     }
 
-    // UI elements
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const statusEl = document.getElementById('status');
@@ -276,56 +237,71 @@
         changesLogEl.innerHTML = '';
     }
 
-    // File name helper: originalfilename_clear.ext
-    function makeOutputName(originalName) {
-        const dotIndex = originalName.lastIndexOf('.');
-        if (dotIndex === -1) {
-            return originalName + '_clear';
-        }
-        const base = originalName.slice(0, dotIndex);
-        const ext = originalName.slice(dotIndex); // includes dot
-        return base + '_clear' + ext;
+    function makeOutputName(name) {
+        const dot = name.lastIndexOf('.');
+        if (dot === -1) return name + '_clear_utf8';
+        return name.slice(0, dot) + '_clear_utf8' + name.slice(dot);
     }
 
-    // Main processing entry point
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        handleFile(file);
+        fileInput.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach(ev =>
+        dropZone.addEventListener(ev, e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        })
+    );
+
+    ['dragleave', 'drop'].forEach(ev =>
+        dropZone.addEventListener(ev, e => {
+            e.preventDefault();
+            if (ev === 'drop') {
+                const file = e.dataTransfer.files[0];
+                handleFile(file);
+            }
+            dropZone.classList.remove('dragover');
+        })
+    );
+
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => e.preventDefault());
+
     function handleFile(file) {
         resetOutput();
-        if (!file) {
-            return;
-        }
+        if (!file) return;
 
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['csv', 'xls', 'xlsx'].includes(ext)) {
-            setStatus('Unsupported file type: ' + ext + '\nUse CSV, XLS or XLSX.');
+            setStatus('Unsupported file type.');
             return;
         }
 
         setStatus('Reading file: ' + file.name + ' ...');
-
         const reader = new FileReader();
 
         if (ext === 'csv') {
-            reader.onload = function (e) {
+            reader.onload = e => {
                 try {
-                    const text = e.target.result;
-                    const wb = XLSX.read(text, { type: 'string' });
+                    const wb = XLSX.read(e.target.result, { type: 'string' });
                     processWorkbook(wb, file.name, 'csv');
                 } catch (err) {
-                    console.error(err);
-                    setStatus('Error while reading CSV: ' + err.message);
+                    setStatus('Error: ' + err.message);
                 }
             };
-            reader.readAsText(file);
+            reader.readAsText(file, 'utf-8');
         } else {
-            reader.onload = function (e) {
+            reader.onload = e => {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    const wb = XLSX.read(data, { type: 'array' });
-                    const bookType = (ext === 'xls') ? 'xls' : 'xlsx';
-                    processWorkbook(wb, file.name, bookType);
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx');
                 } catch (err) {
-                    console.error(err);
-                    setStatus('Error while reading Excel file: ' + err.message);
+                    setStatus('Error: ' + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -333,148 +309,96 @@
     }
 
     function processWorkbook(workbook, originalName, outFormat) {
-        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            setStatus('Workbook has no sheets.');
-            return;
-        }
-
         const newWorkbook = XLSX.utils.book_new();
         let totalRows = 0;
-        let articleCleanedCount = 0;
-        let descriptionCleanedCount = 0;
-        const changeLogs = [];
+        let cleanedA = 0;
+        let cleanedD = 0;
+        const logs = [];
 
-        workbook.SheetNames.forEach((sheetName) => {
-            const ws = workbook.Sheets[sheetName];
-            if (!ws) {
-                return;
-            }
+        workbook.SheetNames.forEach(sheet => {
+            const ws = workbook.Sheets[sheet];
+            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+            if (!aoa.length) return;
 
-            // Convert sheet to array-of-arrays including header row
-            const aoa = XLSX.utils.sheet_to_json(ws, {
-                header: 1,
-                defval: '',
-                raw: false
-            });
+            const header = aoa[0].map(h => String(h || ''));
+            const lower = header.map(h => h.toLowerCase());
+            const colA = lower.indexOf('article');
+            const colD = lower.indexOf('description');
 
-            if (!aoa || aoa.length === 0) {
-                XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
-                return;
-            }
-
-            const headerRow = aoa[0].map((h) => String(h || ''));
-            const headerLower = headerRow.map((h) => h.toLowerCase());
-
-            const articleCol = headerLower.indexOf('article');
-            const descriptionCol = headerLower.indexOf('description');
-
-            let sheetArticleCleaned = 0;
-            let sheetDescriptionCleaned = 0;
-
-            // Process data rows
             for (let r = 1; r < aoa.length; r++) {
                 const row = aoa[r];
-                if (!row) {
-                    continue;
-                }
-                totalRows += 1;
-                const rowNumber = r + 1; // Excel-style: header row = 1
+                if (!row) continue;
+                totalRows++;
+                const rowNum = r + 1;
 
-                if (articleCol !== -1 && articleCol < row.length) {
-                    const original = row[articleCol];
-                    const cleaned = cleanArticle(original);
-                    if (cleaned !== original) {
-                        row[articleCol] = cleaned;
-                        sheetArticleCleaned += 1;
-
-                        const diffOriginal = buildRemovedDiffHtml(original, cleaned);
-                        const safeCleaned = escapeHtmlWithNewlines(cleaned);
-
-                        const entryHtml =
-                            '<div class="log-entry">' +
-                                '<div class="log-header">Sheet "' + escapeHtmlWithNewlines(sheetName) +
-                                '", row ' + rowNumber + ', column "article"</div>' +
-                                '<div class="log-line"><span class="log-label">-</span> ' + diffOriginal + '</div>' +
-                                '<div class="log-line"><span class="log-label">+</span> ' + safeCleaned + '</div>' +
-                            '</div>';
-
-                        changeLogs.push(entryHtml);
+                if (colA !== -1 && colA < row.length) {
+                    const o = row[colA];
+                    const c = cleanArticle(o);
+                    if (c !== o) {
+                        row[colA] = c;
+                        cleanedA++;
+                        logs.push(
+                            logEntry(sheet, rowNum, 'article', o, c)
+                        );
                     }
                 }
 
-                if (descriptionCol !== -1 && descriptionCol < row.length) {
-                    const original = row[descriptionCol];
-                    const cleaned = cleanDescription(original);
-                    if (cleaned !== original) {
-                        row[descriptionCol] = cleaned;
-                        sheetDescriptionCleaned += 1;
-
-                        const diffOriginal = buildRemovedDiffHtml(original, cleaned);
-                        const safeCleaned = escapeHtmlWithNewlines(cleaned);
-
-                        const entryHtml =
-                            '<div class="log-entry">' +
-                                '<div class="log-header">Sheet "' + escapeHtmlWithNewlines(sheetName) +
-                                '", row ' + rowNumber + ', column "description"</div>' +
-                                '<div class="log-line"><span class="log-label">-</span> ' + diffOriginal + '</div>' +
-                                '<div class="log-line"><span class="log-label">+</span> ' + safeCleaned + '</div>' +
-                            '</div>';
-
-                        changeLogs.push(entryHtml);
+                if (colD !== -1 && colD < row.length) {
+                    const o = row[colD];
+                    const c = cleanDescription(o);
+                    if (c !== o) {
+                        row[colD] = c;
+                        cleanedD++;
+                        logs.push(
+                            logEntry(sheet, rowNum, 'description', o, c)
+                        );
                     }
                 }
             }
 
-            articleCleanedCount += sheetArticleCleaned;
-            descriptionCleanedCount += sheetDescriptionCleaned;
-
-            const newSheet = XLSX.utils.aoa_to_sheet(aoa);
-            XLSX.utils.book_append_sheet(newWorkbook, newSheet, sheetName);
+            XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.aoa_to_sheet(aoa), sheet);
         });
 
-        // Serialize new workbook
         let blob;
         if (outFormat === 'csv') {
-            // For CSV we take the first sheet only
-            const firstSheetName = newWorkbook.SheetNames[0];
-            const firstSheet = newWorkbook.Sheets[firstSheetName];
-            const csvData = XLSX.utils.sheet_to_csv(firstSheet);
-            blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const sheet = newWorkbook.Sheets[newWorkbook.SheetNames[0]];
+            const csv = XLSX.utils.sheet_to_csv(sheet);
+            const bom = "\ufeff";
+            blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
         } else {
-            const wbout = XLSX.write(newWorkbook, {
-                bookType: outFormat,
-                type: 'array'
-            });
-            blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const wbout = XLSX.write(newWorkbook, { bookType: outFormat, type: 'array' });
+            blob = new Blob([wbout], { type: "application/octet-stream" });
         }
 
         lastBlob = blob;
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
 
-        let msg = 'Done.\n';
-        msg += 'Rows processed (data rows only): ' + totalRows + '\n';
-        msg += 'Cells cleaned in "article": ' + articleCleanedCount + '\n';
-        msg += 'Cells cleaned in "description": ' + descriptionCleanedCount + '\n';
-        msg += '\nOutput file: ' + lastFilename;
+        let m = 'Done.\n';
+        m += 'Rows processed: ' + totalRows + '\n';
+        m += 'Cells cleaned (article): ' + cleanedA + '\n';
+        m += 'Cells cleaned (description): ' + cleanedD + '\n';
+        m += '\nOutput file: ' + lastFilename;
+        setStatus(m);
 
-        if (articleCleanedCount === 0 && descriptionCleanedCount === 0) {
-            msg += '\n(no characters were removed according to current rules)';
-        }
-
-        setStatus(msg);
-
-        if (changeLogs.length === 0) {
+        if (!logs.length)
             changesLogEl.innerHTML = '<div class="log-entry">No changes.</div>';
-        } else {
-            changesLogEl.innerHTML = changeLogs.join('');
-        }
+        else
+            changesLogEl.innerHTML = logs.join('');
     }
 
-    downloadBtn.addEventListener('click', function () {
-        if (!lastBlob || !lastFilename) {
-            return;
-        }
+    function logEntry(sheet, rowNum, col, original, cleaned) {
+        const diff = buildRemovedDiffHtml(original, cleaned);
+        const newVal = escapeHtmlWithNewlines(cleaned);
+        return `
+<div class="log-entry">
+    <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${col}"</div>
+    <div class="log-line"><span class="log-label">-</span> ${diff}</div>
+    <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
+</div>`;
+    }
+
+    downloadBtn.addEventListener('click', () => {
         const url = URL.createObjectURL(lastBlob);
         const a = document.createElement('a');
         a.href = url;
@@ -483,46 +407,6 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    });
-
-    // Drag & drop + click handlers
-    dropZone.addEventListener('click', function () {
-        fileInput.click();
-    });
-
-    fileInput.addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        handleFile(file);
-        fileInput.value = ''; // allow re-selecting the same file
-    });
-
-    ['dragenter', 'dragover'].forEach((eventName) => {
-        dropZone.addEventListener(eventName, function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add('dragover');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach((eventName) => {
-        dropZone.addEventListener(eventName, function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (eventName === 'drop') {
-                const dt = e.dataTransfer;
-                if (dt && dt.files && dt.files[0]) {
-                    handleFile(dt.files[0]);
-                }
-            }
-            dropZone.classList.remove('dragover');
-        });
-    });
-
-    window.addEventListener('dragover', function (e) {
-        e.preventDefault();
-    });
-    window.addEventListener('drop', function (e) {
-        e.preventDefault();
     });
 </script>
 </body>
