@@ -9,8 +9,22 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 20px; background: #111; color: #eee; }
-        h1 { margin-top: 0; font-size: 20px; }
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #111;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 20px;
+        }
 
         .drop-zone {
             border: 2px dashed #555;
@@ -21,25 +35,60 @@
             background: #1b1b1b;
             transition: background .2s, border-color .2s;
         }
-        .drop-zone.dragover { background: #222; border-color: #999; }
-        .drop-zone input { display: none; }
 
-        .hint { margin-top: 10px; font-size: 13px; color: #ccc; }
-        #status { margin-top: 15px; font-size: 14px; white-space: pre-line; }
+        .drop-zone.dragover {
+            background: #222;
+            border-color: #999;
+        }
+
+        .drop-zone input {
+            display: none;
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            white-space: pre-line;
+        }
 
         .btn {
-            margin-top: 20px; padding: 8px 18px; border-radius: 4px;
-            border: none; background: #2c7be5; color: #fff;
-            cursor: pointer; font-size: 14px;
+            margin-top: 20px;
+            padding: 8px 18px;
+            border-radius: 4px;
+            border: none;
+            background: #2c7be5;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
         }
-        .btn:disabled { background: #444; cursor: default; }
 
-        .log-container { margin-top: 20px; }
-        .log-container h2 { font-size: 16px; margin: 0 0 5px 0; }
+        .btn:disabled {
+            background: #444;
+            cursor: default;
+        }
+
+        .log-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .log-container h2 {
+            font-size: 16px;
+            margin: 0 0 5px 0;
+        }
 
         #changesLog {
+            flex: 1 1 auto;
             width: 100%;
-            max-height: 260px;
             background: #000;
             color: #eee;
             border-radius: 4px;
@@ -47,21 +96,37 @@
             padding: 8px;
             font-family: monospace;
             font-size: 12px;
-            overflow: auto;
+            overflow-y: auto;
             white-space: pre;
+            box-sizing: border-box;
         }
 
-        .log-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
+        .log-hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 3px;
+        }
 
-        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
-        .log-header { color: #ccc; margin-bottom: 2px; }
+        .log-entry {
+            border-bottom: 1px solid #222;
+            padding: 2px 0 3px 0;
+        }
+
+        .log-header {
+            color: #ccc;
+        }
 
         .log-line {
             white-space: pre;
             margin: 0;
             line-height: 1.2;
         }
-        .log-label { display: inline-block; width: 16px; color: #888; }
+
+        .log-label {
+            display: inline-block;
+            width: 2ch;
+            color: #888;
+        }
 
         .removed {
             background: #5b2626;
@@ -100,7 +165,10 @@
             transition: opacity .4s;
             z-index: 99999;
         }
-        .toast.show { opacity: 1; }
+
+        .toast.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -157,7 +225,7 @@
         return s;
     }
 
-    // Collapse multiple spaces into one (do not trim here)
+    // Collapse multiple spaces into one
     function collapseSpaces(s) {
         return s.replace(/ {2,}/g, " ");
     }
@@ -196,7 +264,7 @@
         return out;
     }
 
-    // Generic: only ASCII + collapse spaces (no trim)
+    // Generic: only ASCII + collapse spaces + trim
     function cleanAsciiAndSpacesGeneric(v) {
         if (v == null) return v;
         let s = cleanAsciiOnly(v);
@@ -352,14 +420,16 @@
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const statusEl  = document.getElementById('status');
+    const statusEl = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     const changesLogEl = document.getElementById('changesLog');
 
     let lastBlob = null;
     let lastFilename = null;
 
-    function setStatus(t) { statusEl.textContent = t; }
+    function setStatus(t) {
+        statusEl.textContent = t;
+    }
 
     function resetOutput() {
         lastBlob = null;
@@ -380,14 +450,14 @@
         fileInput.value = '';
     });
 
-    ['dragenter','dragover'].forEach(ev =>
+    ['dragenter', 'dragover'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             dropZone.classList.add('dragover');
         })
     );
 
-    ['dragleave','drop'].forEach(ev =>
+    ['dragleave', 'drop'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             if (ev === 'drop' && e.dataTransfer.files[0]) {
@@ -407,7 +477,7 @@
         const ext = file.name.split('.').pop().toLowerCase();
         console.log('handleFile: name=', file.name, 'ext=', ext);
 
-        if (!['csv','xls','xlsx'].includes(ext)) {
+        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
             setStatus('Unsupported file type. Use CSV, XLS or XLSX.');
             return;
         }
@@ -433,7 +503,7 @@
                 try {
                     const arr = new Uint8Array(e.target.result);
                     console.log('Excel file bytes length =', arr.length);
-                    const wb = XLSX.read(arr, { type: 'array' });
+                    const wb = XLSX.read(arr, {type: 'array'});
                     processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx');
                 } catch (err) {
                     console.error(err);
@@ -522,17 +592,17 @@
             return;
         }
 
-        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0 };
+        const counters = {totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0};
         const logs = [];
 
         cleanAoa(aoa, 'Sheet1', counters, logs);
 
         const changeCount = counters.cleanedA + counters.cleanedD + counters.cleanedGeneric;
         console.log('processCsvText: totalRows =', counters.totalRows,
-                    'cleanedA =', counters.cleanedA,
-                    'cleanedD =', counters.cleanedD,
-                    'cleanedGeneric =', counters.cleanedGeneric,
-                    'changeCount =', changeCount);
+            'cleanedA =', counters.cleanedA,
+            'cleanedD =', counters.cleanedD,
+            'cleanedGeneric =', counters.cleanedGeneric,
+            'changeCount =', changeCount);
 
         if (changeCount === 0) {
             setStatus(
@@ -555,7 +625,7 @@
         }
 
         const csvOut = buildCsvSemicolon(aoa);
-        lastBlob = new Blob(['\ufeff' + csvOut], { type: 'text/csv;charset=utf-8' });
+        lastBlob = new Blob(['\ufeff' + csvOut], {type: 'text/csv;charset=utf-8'});
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
 
@@ -595,12 +665,12 @@
     function processWorkbook(wb, originalName, outFormat) {
         console.log('processWorkbook: file =', originalName, 'type =', outFormat);
         const newWb = XLSX.utils.book_new();
-        const counters = { totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0 };
+        const counters = {totalRows: 0, cleanedA: 0, cleanedD: 0, cleanedGeneric: 0};
         const logs = [];
 
         wb.SheetNames.forEach(sheetName => {
             const ws = wb.Sheets[sheetName];
-            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+            const aoa = XLSX.utils.sheet_to_json(ws, {header: 1, defval: '', raw: false});
             console.log('Sheet', sheetName, 'rows (AOA) =', aoa.length);
             if (!aoa.length) return;
 
@@ -611,10 +681,10 @@
 
         const changeCount = counters.cleanedA + counters.cleanedD + counters.cleanedGeneric;
         console.log('processWorkbook: totalRows =', counters.totalRows,
-                    'cleanedA =', counters.cleanedA,
-                    'cleanedD =', counters.cleanedD,
-                    'cleanedGeneric =', counters.cleanedGeneric,
-                    'changeCount =', changeCount);
+            'cleanedA =', counters.cleanedA,
+            'cleanedD =', counters.cleanedD,
+            'cleanedGeneric =', counters.cleanedGeneric,
+            'changeCount =', changeCount);
 
         if (changeCount === 0) {
             setStatus(
@@ -636,8 +706,8 @@
             return;
         }
 
-        const wbout = XLSX.write(newWb, { bookType: outFormat, type: 'array' });
-        lastBlob = new Blob([wbout], { type: 'application/octet-stream' });
+        const wbout = XLSX.write(newWb, {bookType: outFormat, type: 'array'});
+        lastBlob = new Blob([wbout], {type: 'application/octet-stream'});
         lastFilename = makeOutputName(originalName);
         downloadBtn.disabled = false;
 
@@ -672,17 +742,19 @@
         }
     }
 
-    // ===== Log entry =====
+    // ===== Log entry (compact) =====
 
     function logEntry(sheet, rowNum, colName, original, cleaned) {
         const diff = buildRemovedDiffHtml(original, cleaned);
         const newVal = escapeHtmlWithNewlines(cleaned);
-        return `
-<div class="log-entry">
-  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${escapeHtmlWithNewlines(colName)}"</div>
-  <div class="log-line"><span class="log-label">-</span> ${diff}</div>
-  <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
-</div>`;
+        return (
+            '<div class="log-entry">' +
+            'Sheet "' + escapeHtmlWithNewlines(sheet) + '", row ' + rowNum +
+            ', column "' + escapeHtmlWithNewlines(colName) + '"\n' +
+            '- ' + diff + '\n' +
+            '+ ' + newVal +
+            '</div>\n'
+        );
     }
 
     // ===== Download =====
