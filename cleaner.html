@@ -9,18 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
-        body {
-            font-family: sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #111;
-            color: #eee;
-        }
-
-        h1 {
-            margin-top: 0;
-            font-size: 20px;
-        }
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: #111; color: #eee; }
+        h1 { margin-top: 0; font-size: 20px; }
 
         .drop-zone {
             border: 2px dashed #555;
@@ -31,94 +21,40 @@
             background: #1b1b1b;
             transition: background .2s, border-color .2s;
         }
+        .drop-zone.dragover { background: #222; border-color: #999; }
+        .drop-zone input { display: none; }
 
-        .drop-zone.dragover {
-            background: #222;
-            border-color: #999;
-        }
-
-        .drop-zone input {
-            display: none;
-        }
-
-        .hint {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #ccc;
-        }
-
-        #status {
-            margin-top: 15px;
-            font-size: 14px;
-            white-space: pre-line;
-        }
+        .hint { margin-top: 10px; font-size: 13px; color: #ccc; }
+        #status { margin-top: 15px; font-size: 14px; white-space: pre-line; }
 
         .btn {
-            margin-top: 20px;
-            padding: 8px 18px;
-            border-radius: 4px;
-            border: none;
-            background: #2c7be5;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
+            margin-top: 20px; padding: 8px 18px; border-radius: 4px;
+            border: none; background: #2c7be5; color: #fff;
+            cursor: pointer; font-size: 14px;
         }
+        .btn:disabled { background: #444; cursor: default; }
 
-        .btn:disabled {
-            background: #444;
-            cursor: default;
-        }
-
-        .log-container {
-            margin-top: 20px;
-        }
-
-        .log-container h2 {
-            font-size: 16px;
-            margin: 0 0 5px 0;
-        }
+        .log-container { margin-top: 20px; }
+        .log-container h2 { font-size: 16px; margin: 0 0 5px 0; }
 
         #changesLog {
-            width: 100%;
-            max-height: 260px;
-            background: #000;
-            color: #eee;
-            border-radius: 4px;
-            border: 1px solid #444;
-            padding: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            overflow: auto;
-            white-space: pre;
+            width: 100%; max-height: 260px; background: #000; color: #eee;
+            border-radius: 4px; border: 1px solid #444; padding: 8px;
+            font-family: monospace; font-size: 12px;
+            overflow: auto; white-space: pre;
         }
 
-        .log-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 3px;
-        }
+        .log-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
 
-        .log-entry {
-            border-bottom: 1px solid #222;
-            padding: 4px 0;
-        }
-
-        .log-header {
-            color: #ccc;
-            margin-bottom: 2px;
-        }
+        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
+        .log-header { color: #ccc; margin-bottom: 2px; }
 
         .log-line {
             white-space: pre;
             margin: 0;
             line-height: 1.2;
         }
-
-        .log-label {
-            display: inline-block;
-            width: 16px;
-            color: #888;
-        }
+        .log-label { display: inline-block; width: 16px; color: #888; }
 
         .removed {
             background: #5b2626;
@@ -152,7 +88,6 @@
             transition: opacity .4s;
             z-index: 99999;
         }
-
         .toast.show {
             opacity: 1;
         }
@@ -177,16 +112,25 @@
 </div>
 
 <script>
+    // For article allow: A-Za-z0-9 and " -:_."
     const ARTICLE_EXTRA = ' -:_.';
+    // For description allow:
+    // A-Za-z0-9 and "_,. :;)("'-?!/\%+#&^@$[]Ø=" and CR/LF
     const DESCRIPTION_EXTRA = '_,. :;)("\'-?!/\\%+#&^@$[]Ø=';
 
     const isLetterOrDigit = ch => /[A-Za-z0-9]/.test(ch);
-    const isAllowedArticleChar = ch => isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
+
+    const isAllowedArticleChar = ch =>
+        isLetterOrDigit(ch) || ARTICLE_EXTRA.includes(ch);
+
     const isAllowedDescriptionChar = ch =>
         isLetterOrDigit(ch) || ch === '\r' || ch === '\n' || DESCRIPTION_EXTRA.includes(ch);
 
-    const cleanArticle = v => v == null ? v : [...String(v)].filter(c => isAllowedArticleChar(c)).join('');
-    const cleanDescription = v => v == null ? v : [...String(v)].filter(c => isAllowedDescriptionChar(c)).join('');
+    const cleanArticle = v =>
+        v == null ? v : [...String(v)].filter(c => isAllowedArticleChar(c)).join('');
+
+    const cleanDescription = v =>
+        v == null ? v : [...String(v)].filter(c => isAllowedDescriptionChar(c)).join('');
 
     function escapeHtmlChar(ch) {
         if (ch === '\n') return '\n';
@@ -218,11 +162,11 @@
         return out;
     }
 
-    // Try to detect best encoding for CSV between UTF-8 and Windows-1251
+    // Auto-detect encoding (UTF-8 vs Windows-1251) for CSV
     function decodeCsvBuffer(buffer) {
         if (typeof TextDecoder === 'undefined') {
-            // Fallback: assume UTF-8
-            return {text: new TextDecoder('utf-8').decode(buffer), encoding: 'utf-8 (fallback)'};
+            const dec = new TextDecoder('utf-8');
+            return { text: dec.decode(buffer), encoding: 'utf-8 (fallback)' };
         }
 
         const candidates = ['utf-8', 'windows-1251'];
@@ -230,45 +174,57 @@
 
         for (const enc of candidates) {
             try {
-                const dec = new TextDecoder(enc, {fatal: false});
+                const dec = new TextDecoder(enc, { fatal: false });
                 const text = dec.decode(buffer);
-                results.push({enc, text, score: scoreDecodedText(text)});
+                results.push({ enc, text, score: scoreDecodedText(text) });
             } catch (e) {
-                // Encoding not supported, skip
+                // ignore unsupported encoding
             }
         }
 
         if (!results.length) {
             const dec = new TextDecoder('utf-8');
-            return {text: dec.decode(buffer), encoding: 'utf-8 (forced)'};
+            return { text: dec.decode(buffer), encoding: 'utf-8 (forced)' };
         }
 
-        // Choose minimal score
         results.sort((a, b) => a.score - b.score);
-        return {text: results[0].text, encoding: results[0].enc};
+        return { text: results[0].text, encoding: results[0].enc };
     }
 
     function scoreDecodedText(text) {
-        // Lower score = better
-        let bad = 0;       // replacement chars
-        let mojibake = 0;  // Ã, Ð, Ñ, etc.
-        let cyr = 0;       // Cyrillic letters
+        // Lower score is better
+        let bad = 0;      // U+FFFD
+        let mojibake = 0; // typical mojibake chars
+        let cyr = 0;      // Cyrillic
 
         for (let i = 0; i < text.length; i++) {
             const ch = text[i];
             if (ch === '\uFFFD') bad++;
-
             if ('ÃÐÑÒÓÝÞãðñòóýþ'.includes(ch)) mojibake++;
-
             const code = ch.charCodeAt(0);
             if (code >= 0x0400 && code <= 0x04FF) cyr++;
         }
+
         return bad * 10 + mojibake * 5 - cyr;
+    }
+
+    function showToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+
+        requestAnimationFrame(() => t.classList.add('show'));
+
+        setTimeout(() => {
+            t.classList.remove('show');
+            setTimeout(() => t.remove(), 500);
+        }, 4000);
     }
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const statusEl = document.getElementById('status');
+    const statusEl  = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     const changesLogEl = document.getElementById('changesLog');
 
@@ -276,6 +232,7 @@
     let lastFilename = null;
 
     const setStatus = t => statusEl.textContent = t;
+
     const resetOutput = () => {
         lastBlob = null;
         lastFilename = null;
@@ -289,19 +246,20 @@
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
+
     fileInput.addEventListener('change', e => {
         handleFile(e.target.files[0]);
         fileInput.value = '';
     });
 
-    ['dragenter', 'dragover'].forEach(ev =>
+    ['dragenter','dragover'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             dropZone.classList.add('dragover');
         })
     );
 
-    ['dragleave', 'drop'].forEach(ev =>
+    ['dragleave','drop'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             if (ev === 'drop' && e.dataTransfer.files[0]) {
@@ -317,8 +275,9 @@
     function handleFile(file) {
         resetOutput();
         if (!file) return;
+
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
+        if (!['csv','xls','xlsx'].includes(ext)) {
             setStatus('Unsupported file type');
             return;
         }
@@ -327,12 +286,12 @@
         const r = new FileReader();
 
         if (ext === 'csv') {
-            // Read as ArrayBuffer and auto-detect encoding
+            // Read as ArrayBuffer to auto-detect encoding
             r.onload = e => {
                 try {
                     const buffer = e.target.result;
                     const decoded = decodeCsvBuffer(buffer);
-                    const wb = XLSX.read(decoded.text, {type: 'string'});
+                    const wb = XLSX.read(decoded.text, { type: 'string' });
                     processWorkbook(wb, file.name, 'csv', decoded.encoding);
                 } catch (err) {
                     console.error(err);
@@ -343,7 +302,7 @@
         } else {
             r.onload = e => {
                 try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx', null);
                 } catch (err) {
                     console.error(err);
@@ -363,7 +322,7 @@
 
         wb.SheetNames.forEach(sheet => {
             const ws = wb.Sheets[sheet];
-            const aoa = XLSX.utils.sheet_to_json(ws, {header: 1, defval: '', raw: false});
+            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
             if (!aoa.length) return;
 
             const header = aoa[0].map(h => String(h || ''));
@@ -401,12 +360,13 @@
             XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(aoa), sheet);
         });
 
+        // Serialize workbook
         if (outFormat === 'csv') {
             const csv = XLSX.utils.sheet_to_csv(newWb.Sheets[newWb.SheetNames[0]]);
-            lastBlob = new Blob(["\ufeff" + csv], {type: "text/csv;charset=utf-8"});
+            lastBlob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
         } else {
-            const wbout = XLSX.write(newWb, {bookType: outFormat, type: 'array'});
-            lastBlob = new Blob([wbout], {type: "application/octet-stream"});
+            const wbout = XLSX.write(newWb, { bookType: outFormat, type: 'array' });
+            lastBlob = new Blob([wbout], { type: "application/octet-stream" });
         }
 
         lastFilename = makeOutputName(originalName);
@@ -444,20 +404,6 @@
             const msg = phrases[Math.floor(Math.random() * phrases.length)];
             showToast(msg);
         }
-    }
-
-    function showToast(msg) {
-        const t = document.createElement("div");
-        t.className = "toast";
-        t.textContent = msg;
-        document.body.appendChild(t);
-
-        requestAnimationFrame(() => t.classList.add("show"));
-
-        setTimeout(() => {
-            t.classList.remove("show");
-            setTimeout(() => t.remove(), 500);
-        }, 4000);
     }
 
     function logEntry(sheet, rowNum, col, original, cleaned) {
