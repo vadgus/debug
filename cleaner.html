@@ -9,18 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
-        body {
-            font-family: sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #111;
-            color: #eee;
-        }
-
-        h1 {
-            margin-top: 0;
-            font-size: 20px;
-        }
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: #111; color: #eee; }
+        h1 { margin-top: 0; font-size: 20px; }
 
         .drop-zone {
             border: 2px dashed #555;
@@ -31,94 +21,40 @@
             background: #1b1b1b;
             transition: background .2s, border-color .2s;
         }
+        .drop-zone.dragover { background: #222; border-color: #999; }
+        .drop-zone input { display: none; }
 
-        .drop-zone.dragover {
-            background: #222;
-            border-color: #999;
-        }
-
-        .drop-zone input {
-            display: none;
-        }
-
-        .hint {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #ccc;
-        }
-
-        #status {
-            margin-top: 15px;
-            font-size: 14px;
-            white-space: pre-line;
-        }
+        .hint { margin-top: 10px; font-size: 13px; color: #ccc; }
+        #status { margin-top: 15px; font-size: 14px; white-space: pre-line; }
 
         .btn {
-            margin-top: 20px;
-            padding: 8px 18px;
-            border-radius: 4px;
-            border: none;
-            background: #2c7be5;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
+            margin-top: 20px; padding: 8px 18px; border-radius: 4px;
+            border: none; background: #2c7be5; color: #fff;
+            cursor: pointer; font-size: 14px;
         }
+        .btn:disabled { background: #444; cursor: default; }
 
-        .btn:disabled {
-            background: #444;
-            cursor: default;
-        }
-
-        .log-container {
-            margin-top: 20px;
-        }
-
-        .log-container h2 {
-            font-size: 16px;
-            margin: 0 0 5px 0;
-        }
+        .log-container { margin-top: 20px; }
+        .log-container h2 { font-size: 16px; margin: 0 0 5px 0; }
 
         #changesLog {
-            width: 100%;
-            max-height: 260px;
-            background: #000;
-            color: #eee;
-            border-radius: 4px;
-            border: 1px solid #444;
-            padding: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            overflow: auto;
-            white-space: pre;
+            width: 100%; max-height: 260px; background: #000; color: #eee;
+            border-radius: 4px; border: 1px solid #444; padding: 8px;
+            font-family: monospace; font-size: 12px;
+            overflow: auto; white-space: pre;
         }
 
-        .log-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 3px;
-        }
+        .log-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
 
-        .log-entry {
-            border-bottom: 1px solid #222;
-            padding: 4px 0;
-        }
-
-        .log-header {
-            color: #ccc;
-            margin-bottom: 2px;
-        }
+        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
+        .log-header { color: #ccc; margin-bottom: 2px; }
 
         .log-line {
             white-space: pre;
             margin: 0;
             line-height: 1.2;
         }
-
-        .log-label {
-            display: inline-block;
-            width: 16px;
-            color: #888;
-        }
+        .log-label { display: inline-block; width: 16px; color: #888; }
 
         .removed {
             background: #5b2626;
@@ -127,6 +63,7 @@
         }
 
         .no-changes {
+            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -135,6 +72,10 @@
             font-weight: bold;
             padding: 25px 0;
             text-align: center;
+        }
+
+        #changesLog:has(.no-changes) {
+            overflow: hidden;
         }
 
         .toast {
@@ -152,22 +93,7 @@
             transition: opacity .4s;
             z-index: 99999;
         }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        .no-changes {
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #changesLog:has(.no-changes) {
-            overflow: hidden;
-        }
-
+        .toast.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -274,7 +200,7 @@
     function decodeCsvBuffer(buffer) {
         if (typeof TextDecoder === 'undefined') {
             const dec = new TextDecoder('utf-8');
-            return {text: dec.decode(buffer), encoding: 'utf-8 (fallback)'};
+            return { text: dec.decode(buffer), encoding: 'utf-8 (fallback)' };
         }
 
         const candidates = ['utf-8', 'windows-1251'];
@@ -282,9 +208,9 @@
 
         for (const enc of candidates) {
             try {
-                const dec = new TextDecoder(enc, {fatal: false});
+                const dec = new TextDecoder(enc, { fatal: false });
                 const text = dec.decode(buffer);
-                results.push({enc, text, score: scoreDecodedText(text)});
+                results.push({ enc, text, score: scoreDecodedText(text) });
             } catch (e) {
                 // ignore unsupported encoding
             }
@@ -292,11 +218,11 @@
 
         if (!results.length) {
             const dec = new TextDecoder('utf-8');
-            return {text: dec.decode(buffer), encoding: 'utf-8 (forced)'};
+            return { text: dec.decode(buffer), encoding: 'utf-8 (forced)' };
         }
 
         results.sort((a, b) => a.score - b.score);
-        return {text: results[0].text, encoding: results[0].enc};
+        return { text: results[0].text, encoding: results[0].enc };
     }
 
     function scoreDecodedText(text) {
@@ -332,16 +258,14 @@
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const statusEl = document.getElementById('status');
+    const statusEl  = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     const changesLogEl = document.getElementById('changesLog');
 
     let lastBlob = null;
     let lastFilename = null;
 
-    function setStatus(t) {
-        statusEl.textContent = t;
-    }
+    function setStatus(t) { statusEl.textContent = t; }
 
     function resetOutput() {
         lastBlob = null;
@@ -362,14 +286,14 @@
         fileInput.value = '';
     });
 
-    ['dragenter', 'dragover'].forEach(ev =>
+    ['dragenter','dragover'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             dropZone.classList.add('dragover');
         })
     );
 
-    ['dragleave', 'drop'].forEach(ev =>
+    ['dragleave','drop'].forEach(ev =>
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
             if (ev === 'drop' && e.dataTransfer.files[0]) {
@@ -387,7 +311,7 @@
         if (!file) return;
 
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['csv', 'xls', 'xlsx'].includes(ext)) {
+        if (!['csv','xls','xlsx'].includes(ext)) {
             setStatus('Unsupported file type');
             return;
         }
@@ -400,7 +324,7 @@
                 try {
                     const buffer = e.target.result;
                     const decoded = decodeCsvBuffer(buffer);
-                    const wb = XLSX.read(decoded.text, {type: 'string'});
+                    const wb = XLSX.read(decoded.text, { type: 'string' });
                     processWorkbook(wb, file.name, 'csv', decoded.encoding);
                 } catch (err) {
                     console.error(err);
@@ -411,7 +335,7 @@
         } else {
             r.onload = e => {
                 try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     processWorkbook(wb, file.name, ext === 'xls' ? 'xls' : 'xlsx', null);
                 } catch (err) {
                     console.error(err);
@@ -431,12 +355,14 @@
 
         wb.SheetNames.forEach(sheet => {
             const ws = wb.Sheets[sheet];
-            const aoa = XLSX.utils.sheet_to_json(ws, {header: 1, defval: '', raw: false});
+            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
             if (!aoa.length) return;
 
             const header = aoa[0].map(h => String(h || ''));
             const lower = header.map(h => h.toLowerCase());
-            const colA = lower.indexOf('article');
+
+            // IMPORTANT: use real headers
+            const colA = lower.indexOf('article code');
             const colD = lower.indexOf('description');
 
             for (let r = 1; r < aoa.length; r++) {
@@ -451,7 +377,7 @@
                     if (o !== c) {
                         row[colA] = c;
                         cleanedA++;
-                        logs.push(logEntry(sheet, rowNum, 'article', o, c));
+                        logs.push(logEntry(sheet, rowNum, 'Article code', o, c));
                     }
                 }
 
@@ -461,7 +387,7 @@
                     if (o !== c) {
                         row[colD] = c;
                         cleanedD++;
-                        logs.push(logEntry(sheet, rowNum, 'description', o, c));
+                        logs.push(logEntry(sheet, rowNum, 'Description', o, c));
                     }
                 }
             }
@@ -471,10 +397,10 @@
 
         if (outFormat === 'csv') {
             const csv = XLSX.utils.sheet_to_csv(newWb.Sheets[newWb.SheetNames[0]]);
-            lastBlob = new Blob(["\ufeff" + csv], {type: "text/csv;charset=utf-8"});
+            lastBlob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
         } else {
-            const wbout = XLSX.write(newWb, {bookType: outFormat, type: 'array'});
-            lastBlob = new Blob([wbout], {type: "application/octet-stream"});
+            const wbout = XLSX.write(newWb, { bookType: outFormat, type: 'array' });
+            lastBlob = new Blob([wbout], { type: 'application/octet-stream' });
         }
 
         lastFilename = makeOutputName(originalName);
@@ -485,8 +411,8 @@
             status += 'Input encoding: ' + inputEncoding + '\n';
         }
         status += 'Rows processed: ' + total + '\n';
-        status += 'Cells cleaned (article): ' + cleanedA + '\n';
-        status += 'Cells cleaned (description): ' + cleanedD + '\n';
+        status += 'Cells cleaned (Article code): ' + cleanedA + '\n';
+        status += 'Cells cleaned (Description): ' + cleanedD + '\n';
         status += '\nOutput file: ' + lastFilename;
         setStatus(status);
 
@@ -514,12 +440,12 @@
         }
     }
 
-    function logEntry(sheet, rowNum, col, original, cleaned) {
+    function logEntry(sheet, rowNum, colName, original, cleaned) {
         const diff = buildRemovedDiffHtml(original, cleaned);
         const newVal = escapeHtmlWithNewlines(cleaned);
         return `
 <div class="log-entry">
-  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${col}"</div>
+  <div class="log-header">Sheet "${escapeHtmlWithNewlines(sheet)}", row ${rowNum}, column "${colName}"</div>
   <div class="log-line"><span class="log-label">-</span> ${diff}</div>
   <div class="log-line"><span class="log-label">+</span> ${newVal}</div>
 </div>`;
