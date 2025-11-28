@@ -38,7 +38,7 @@
 
         #changesLog {
             width: 100%; max-height: 260px; background: #000; color: #eee;
-            border: 1px solid #444; border-radius: 4px; padding: 8px;
+            border-radius: 4px; border: 1px solid #444; padding: 8px;
             font-family: monospace; font-size: 12px;
             overflow: auto; white-space: pre;
         }
@@ -47,12 +47,20 @@
 
         .log-entry { border-bottom: 1px solid #222; padding: 4px 0; }
         .log-header { color: #ccc; margin-bottom: 2px; }
-        .log-line { white-space: pre; margin: 0; line-height: 1.2; }
+
+        .log-line {
+            white-space: pre;
+            margin: 0;
+            line-height: 1.2;
+        }
         .log-label { display: inline-block; width: 16px; color: #888; }
 
-        .removed { background: #5b2626; color: #ffb3b3; text-decoration: line-through; }
+        .removed {
+            background: #5b2626;
+            color: #ffb3b3;
+            text-decoration: line-through;
+        }
 
-        /* ★ блок как был, просто без иконки */
         .no-changes {
             display: flex;
             justify-content: center;
@@ -94,18 +102,18 @@
     const cleanArticle = v => v == null ? v : [...String(v)].filter(c => isAllowedArticleChar(c)).join('');
     const cleanDescription = v => v == null ? v : [...String(v)].filter(c => isAllowedDescriptionChar(c)).join('');
 
-    function escapeHtmlChar(ch) {
+    const escapeHtmlChar = ch => {
         if (ch === '\n') return '\n';
         if (ch === '\r') return '';
         if (ch === '&') return '&amp;';
         if (ch === '<') return '&lt;';
         if (ch === '>') return '&gt;';
         return ch;
-    }
+    };
     const escapeHtmlWithNewlines = v => v == null ? '' : [...String(v)].map(escapeHtmlChar).join('');
 
     function buildRemovedDiffHtml(original, cleaned) {
-        if (original == null) return '';
+        if (!original) return '';
         const o = String(original), c = cleaned == null ? '' : String(cleaned);
         let j = 0, out = '';
         for (let i = 0; i < o.length; i++) {
@@ -128,13 +136,14 @@
     const setStatus = t => statusEl.textContent = t;
     const resetOutput = () => { lastBlob = null; lastFilename = null; downloadBtn.disabled = true; changesLogEl.innerHTML = ''; };
 
-    const makeOutputName = n => {
-        const d = n.lastIndexOf('.');
-        return d === -1 ? n + '_clear_utf8' : n.slice(0, d) + '_clear_utf8' + n.slice(d);
-    };
+    function makeOutputName(name) {
+        const d = name.lastIndexOf('.');
+        return d === -1 ? name + '_clear' : name.slice(0, d) + '_clear' + name.slice(d);
+    }
 
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', e => { handleFile(e.target.files[0]); fileInput.value = ''; });
+
     ['dragenter','dragover'].forEach(ev =>
         dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
     );
@@ -153,7 +162,8 @@
         resetOutput();
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['csv','xls','xlsx'].includes(ext)) return setStatus('Unsupported file type');
+        if (!['csv','xls','xlsx'].includes(ext))
+            return setStatus('Unsupported file type');
 
         setStatus('Reading file...');
         const r = new FileReader();
@@ -162,7 +172,8 @@
             r.onload = e => processWorkbook(XLSX.read(e.target.result, { type:'string' }), file.name, 'csv');
             r.readAsText(file, 'utf-8');
         } else {
-            r.onload = e => processWorkbook(XLSX.read(new Uint8Array(e.target.result), { type:'array' }), file.name, ext==='xls'?'xls':'xlsx');
+            r.onload = e =>
+                processWorkbook(XLSX.read(new Uint8Array(e.target.result), { type:'array' }), file.name, ext === 'xls' ? 'xls' : 'xlsx');
             r.readAsArrayBuffer(file);
         }
     }
@@ -189,11 +200,13 @@
                     const o = row[colA], c = cleanArticle(o);
                     if (o !== c) { row[colA] = c; cleanedA++; logs.push(logEntry(sheet,rowNum,'article',o,c)); }
                 }
+
                 if (colD !== -1 && colD < row.length) {
                     const o = row[colD], c = cleanDescription(o);
                     if (o !== c) { row[colD] = c; cleanedD++; logs.push(logEntry(sheet,rowNum,'description',o,c)); }
                 }
             }
+
             XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(aoa), sheet);
         });
 
